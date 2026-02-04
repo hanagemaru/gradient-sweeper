@@ -92,6 +92,27 @@
 |------|--------|------|
 | 2026-02-02 | プロジェクト開始 | 仕様書確定 |
 | 2026-02-02 | MVP実装完了 | 全画面・ゲーム機能実装 |
+| 2026-02-02 | GitHubへpush | https://github.com/hanagemaru/gradient-sweeper |
+
+---
+
+## デプロイ情報
+
+### GitHub
+- **リポジトリ**: https://github.com/hanagemaru/gradient-sweeper
+- **ブランチ**: main
+
+### Netlify（準備完了）
+- `netlify.toml` 設定済み
+- ビルドコマンド: `npm run build`
+- Supabase未設定でもモックで動作
+
+### 次のアクション
+1. NetlifyでGitHubリポジトリをImport
+2. 自動デプロイ完了後、URLを確認
+3. （オプション）Supabase設定でランキング本番運用
+
+詳細は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照
 
 ---
 
