@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  
+  /* ゲーム用CSS変数 */
+  --cell-size: 36px;
+  --icon-size: 24px;
+  --gap: 2px;
+  --radius: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* スマホ向けの基本設定 */
+html {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* セル選択防止 */
+.game-board {
+  user-select: none;
+  -webkit-user-select: none;
+}
