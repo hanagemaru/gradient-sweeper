@@ -136,22 +136,25 @@ Netlify Site settings → **Environment variables** に以下を追加：
 
 1. Site settings → **Domain management**
 2. **Add a domain** をクリック
-3. 所有しているドメイン名を入力（例: `gradientsweeper.com`）
+3. 所有しているドメイン名を入力（例: `sweeper.hanage.app`）
 
 ### 2. DNS設定
 
-ドメインレジストラ（お名前.com、Cloudflareなど）で以下のレコードを追加：
+ドメインレジストラ（お名前.comなど）で以下のレコードを追加：
 
-#### Aレコード（推奨）
+#### サブドメインの場合（例: sweeper.hanage.app）
+```
+CNAME    sweeper    silly-dodol-4def9c.netlify.app
+```
+
+#### 所有権確認用TXTレコード（初回のみ）
+```
+TXT    subdomain-owner-verification    [Netlifyが指定する値]
+```
+
+#### ルートドメインの場合（例: example.com）
 ```
 A    @    75.2.60.5
-```
-
-または
-
-#### CNAMEレコード
-```
-CNAME    www    xxxxx.netlify.app
 ```
 
 ### 3. HTTPS証明書

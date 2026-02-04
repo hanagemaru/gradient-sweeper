@@ -92,8 +92,9 @@ gradient-sweeper/
 
 ## リンク
 
+- **本番環境**: https://sweeper.hanage.app
 - **リポジトリ**: https://github.com/hanagemaru/gradient-sweeper
-- **本番環境**: （Netlifyデプロイ後に追加）
+- **Netlifyデフォルト**: https://silly-dodol-4def9c.netlify.app
 
 ---
 

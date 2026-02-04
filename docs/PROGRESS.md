@@ -93,6 +93,8 @@
 | 2026-02-02 | プロジェクト開始 | 仕様書確定 |
 | 2026-02-02 | MVP実装完了 | 全画面・ゲーム機能実装 |
 | 2026-02-02 | GitHubへpush | https://github.com/hanagemaru/gradient-sweeper |
+| 2026-02-02 | Netlifyデプロイ完了 | https://sweeper.hanage.app |
+| 2026-02-02 | 独自ドメイン設定完了 | SSL証明書発行済み |
 
 ---
 
@@ -102,15 +104,22 @@
 - **リポジトリ**: https://github.com/hanagemaru/gradient-sweeper
 - **ブランチ**: main
 
-### Netlify（準備完了）
-- `netlify.toml` 設定済み
-- ビルドコマンド: `npm run build`
-- Supabase未設定でもモックで動作
+### Netlify（本番稼働中）
+- **本番URL**: https://sweeper.hanage.app
+- **デフォルトURL**: https://silly-dodol-4def9c.netlify.app
+- **ビルドコマンド**: `npm run build`
+- **SSL証明書**: Let's Encrypt（自動更新）
+- **Supabase**: 未設定（モックモードで動作中）
 
-### 次のアクション
-1. NetlifyでGitHubリポジトリをImport
-2. 自動デプロイ完了後、URLを確認
-3. （オプション）Supabase設定でランキング本番運用
+### ドメイン構成
+- **ハブサイト**: hanage.app（予定）
+- **Gradient Sweeper**: sweeper.hanage.app（公開済み）
+- **DNS**: お名前.com（ネームサーバー: 01-04.dnsv.jp）
+
+### 今後の展開
+- [ ] ハブサイト（hanage.app）の構築
+- [ ] Supabase設定でランキング本番運用
+- [ ] Service Worker実装（オフライン対応）
 
 詳細は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照
 
