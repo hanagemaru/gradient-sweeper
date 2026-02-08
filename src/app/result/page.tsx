@@ -149,7 +149,7 @@ function ResultContent() {
         <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
           <div>
             <label htmlFor="playerName" className="block text-sm text-gray-400 mb-2">
-              {t("result.playerName")} ({t("common.optional" as any) || "任意"})
+              {t("result.playerName")} ({t("common.optional")})
             </label>
             <input
               id="playerName"

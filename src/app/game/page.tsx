@@ -67,8 +67,7 @@ function GameContent() {
       }, 600); // アニメーション時間（0.6s）と合わせる
       return () => clearTimeout(timeoutId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.missCount]);
+  }, [state.missCount, state.isGameOver, state.isCleared, resetExploded]);
 
   // クリア後の答え合わせ時間（2.5秒後にモーダル表示）
   useEffect(() => {

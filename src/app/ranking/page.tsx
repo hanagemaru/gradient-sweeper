@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/i18n/useI18n";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/Icon";
-import { formatTime } from "@/hooks/useTimer";
 import { GameMode, Difficulty, LeaderboardEntry } from "@/types/game";
 
 function RankingContent() {
