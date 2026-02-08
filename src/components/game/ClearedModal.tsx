@@ -26,6 +26,10 @@ export function ClearedModal({
       <div className="flex flex-col items-center gap-6">
         <Icon name="star" size="xl" />
         <h2 className="text-2xl font-bold">{t("cleared.title")}</h2>
+        
+        {mode === "endless" && (
+          <p className="text-gray-400 text-center">{t("cleared.endlessMessage")}</p>
+        )}
 
         <div className="flex flex-col gap-3 w-full">
           {mode === "endless" ? (

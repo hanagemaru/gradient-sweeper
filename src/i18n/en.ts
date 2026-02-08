@@ -17,9 +17,11 @@ export const en: Translations = {
   game: {
     level: "Level",
     lives: "Lives",
+    bombs: "Bombs",
     pause: "Pause",
     resume: "Resume",
     paused: "Paused",
+    quit: "Quit Game",
   },
   gameOver: {
     title: "Game Over",
@@ -28,7 +30,8 @@ export const en: Translations = {
     remaining: "Revives remaining",
   },
   cleared: {
-    title: "Cleared!",
+    title: "Stage Cleared!",
+    endlessMessage: "Ready for the next challenge?",
     next: "Next Level",
   },
   result: {
@@ -38,6 +41,11 @@ export const en: Translations = {
     time: "Time",
     level: "Level Reached",
     misses: "Misses",
+    score: "Score",
+    playerName: "Player Name",
+    enterName: "Enter your name",
+    submit: "Submit",
+    skip: "Skip",
     toRanking: "View Ranking",
     toHome: "Back to Home",
   },
@@ -46,14 +54,17 @@ export const en: Translations = {
     endless: "Endless",
     timeAttack: "Time Attack",
     rank: "Rank",
+    name: "Name",
     level: "Level",
     time: "Time",
     misses: "Misses",
+    score: "Score",
     noData: "No data available",
     back: "Back",
   },
   common: {
     loading: "Loading...",
     error: "An error occurred",
+    optional: "Optional",
   },
 };

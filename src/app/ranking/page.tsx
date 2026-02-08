@@ -90,7 +90,7 @@ function RankingContent() {
       )}
 
       {/* ランキングテーブル */}
-      <div className="w-full max-w-md bg-gray-800 rounded-xl overflow-hidden">
+      <div className="w-full max-w-md bg-gray-900 rounded-xl overflow-hidden shadow-lg">
         {loading ? (
           <div className="p-8 text-center text-gray-400">
             {t("common.loading")}
@@ -103,35 +103,37 @@ function RankingContent() {
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-gray-700">
+            <thead className="bg-gray-800">
               <tr>
-                <th className="py-3 px-4 text-left">{t("ranking.rank")}</th>
+                <th className="py-3 px-4 text-left text-gray-100">{t("ranking.rank")}</th>
+                <th className="py-3 px-4 text-left text-gray-100">{t("ranking.name")}</th>
+                <th className="py-3 px-4 text-right text-gray-100">{t("ranking.score")}</th>
                 {mode === "endless" && (
-                  <th className="py-3 px-4 text-right">{t("ranking.level")}</th>
+                  <th className="py-3 px-4 text-right text-gray-100">{t("ranking.level")}</th>
                 )}
-                <th className="py-3 px-4 text-right">{t("ranking.time")}</th>
-                <th className="py-3 px-4 text-right">{t("ranking.misses")}</th>
               </tr>
             </thead>
             <tbody>
               {data.map((entry) => (
-                <tr key={entry.rank} className="border-t border-gray-700">
-                  <td className="py-3 px-4">
+                <tr key={entry.rank} className="border-t border-gray-600">
+                  <td className="py-3 px-4 text-white">
                     {entry.rank <= 3 ? (
                       <span className="text-yellow-400">#{entry.rank}</span>
                     ) : (
                       `#${entry.rank}`
                     )}
                   </td>
+                  <td className="py-3 px-4 text-white truncate max-w-[100px]">
+                    {entry.player_name || "Anonymous"}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-white">
+                    {entry.score.toLocaleString()}
+                  </td>
                   {mode === "endless" && (
-                    <td className="py-3 px-4 text-right font-semibold">
+                    <td className="py-3 px-4 text-right font-semibold text-white">
                       {entry.endless_level}
                     </td>
                   )}
-                  <td className="py-3 px-4 text-right font-mono">
-                    {formatTime(entry.time_ms)}
-                  </td>
-                  <td className="py-3 px-4 text-right">{entry.miss_count}</td>
                 </tr>
               ))}
             </tbody>

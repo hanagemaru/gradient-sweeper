@@ -233,16 +233,20 @@ function checkWin(board: Board): boolean {
 
 ```typescript
 function handleMissEndless(state: GameState): GameState {
-  const cell = getExplodedCell(state.board);
-  
-  // 踏んだマスを未開に戻す
-  cell.state = 'hidden';
-  
+  // 爆弾エフェクト表示のため、exploded 状態を維持する
+  // 0.6秒後にコンポーネント側で RESET_EXPLODED を dispatch してリセット
   return {
     ...state,
     lives: state.lives - 1,
     missCount: state.missCount + 1,
   };
+}
+
+// 0.6秒後に呼ばれる
+function resetExploded(state: GameState): GameState {
+  const cell = getExplodedCell(state.board);
+  if (cell) cell.state = 'hidden';
+  return { ...state };
 }
 ```
 
@@ -289,7 +293,21 @@ function advanceLevel(state: GameState): GameState {
 
 ---
 
-## 8. 型定義
+## 8. スコア計算
+
+### 8.1 エンドレスモード
+```
+score = (level × 20,000) - (time_seconds) - (miss_count × 500) - (revive_count × 1,000)
+```
+
+### 8.2 タイムアタックモード
+```
+score = 1,000,000 - (time_ms ÷ 10) - (miss_count × 5,000) - (revive_count × 10,000)
+```
+
+---
+
+## 9. 型定義
 
 ```typescript
 type CellState = 'hidden' | 'revealed' | 'flagged' | 'exploded';
@@ -328,4 +346,4 @@ interface GameState {
 
 ---
 
-*最終更新: 2026-02-02*
+*最終更新: 2026-02-08*

@@ -15,9 +15,11 @@ export const ja = {
   game: {
     level: "レベル",
     lives: "残機",
+    bombs: "爆弾",
     pause: "一時停止",
     resume: "再開",
     paused: "ポーズ中",
+    quit: "ゲームをやめる",
   },
   gameOver: {
     title: "ゲームオーバー",
@@ -26,7 +28,8 @@ export const ja = {
     remaining: "復活可能回数",
   },
   cleared: {
-    title: "クリア！",
+    title: "ステージクリア！",
+    endlessMessage: "次のレベルに挑戦しよう",
     next: "次のレベルへ",
   },
   result: {
@@ -36,6 +39,11 @@ export const ja = {
     time: "タイム",
     level: "到達レベル",
     misses: "ミス数",
+    score: "スコア",
+    playerName: "プレイヤー名",
+    enterName: "名前を入力してください",
+    submit: "登録する",
+    skip: "スキップ",
     toRanking: "ランキングを見る",
     toHome: "ホームに戻る",
   },
@@ -44,15 +52,18 @@ export const ja = {
     endless: "エンドレス",
     timeAttack: "タイムアタック",
     rank: "順位",
+    name: "名前",
     level: "レベル",
     time: "タイム",
     misses: "ミス",
+    score: "スコア",
     noData: "データがありません",
     back: "戻る",
   },
   common: {
     loading: "読み込み中...",
     error: "エラーが発生しました",
+    optional: "任意",
   },
 };
 

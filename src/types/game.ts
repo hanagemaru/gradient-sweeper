@@ -52,6 +52,7 @@ export type GameAction =
   | { type: "TICK"; deltaMs: number }
   | { type: "REVIVE" }
   | { type: "GIVE_UP" }
+  | { type: "RESET_EXPLODED" }
   | { type: "NEXT_LEVEL" }
   | { type: "RESET"; mode: GameMode; difficulty?: Difficulty };
 
@@ -68,14 +69,19 @@ export interface ScoreRequest {
   time_ms: number;
   endless_level?: number;
   miss_count: number;
+  revive_count: number;
+  player_name?: string;
 }
 
 // ランキングエントリ
 export interface LeaderboardEntry {
   rank: number;
+  player_name?: string;
+  score: number;
   time_ms: number;
   endless_level?: number;
   miss_count: number;
+  revive_count: number;
   created_at: string;
 }
 

@@ -30,10 +30,45 @@ body {
 html {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
 
-/* セル選択防止 */
+body {
+  overscroll-behavior: none;
+}
+
+/* セル選択防止・ブラウザスワイプナビゲーション防止 */
 .game-board {
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* 爆弾エフェクトアニメーション */
+@keyframes bomb-explode {
+  0% {
+    transform: scale(1);
+    background-color: #ef4444;
+  }
+  25% {
+    transform: scale(1.2);
+    background-color: #dc2626;
+  }
+  50% {
+    transform: scale(0.95);
+    background-color: #ef4444;
+  }
+  75% {
+    transform: scale(1.1);
+    background-color: #dc2626;
+  }
+  100% {
+    transform: scale(1);
+    background-color: #ef4444;
+  }
+}
+
+.bomb-explode {
+  animation: bomb-explode 0.6s ease-in-out;
 }

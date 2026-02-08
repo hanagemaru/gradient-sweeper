@@ -30,6 +30,8 @@ interface ScoreRequest {
   time_ms: number;                        // ミリ秒
   endless_level?: number;                 // Endlessの場合必須
   miss_count: number;
+  revive_count: number;
+  player_name?: string;                   // 任意（最大50文字）
 }
 ```
 
@@ -62,6 +64,8 @@ interface ErrorResponse {
 | time_ms | 0以上、86400000以下（24時間） |
 | endless_level | Endlessの場合必須、1以上 |
 | miss_count | 0以上 |
+| revive_count | 0以上 |
+| player_name | 任意、50文字以内 |
 
 ### レート制限
 
@@ -149,9 +153,12 @@ interface LeaderboardResponse {
 
 interface LeaderboardEntry {
   rank: number;
+  player_name?: string;
+  score: number;
   time_ms: number;
   endless_level?: number;  // Endlessのみ
   miss_count: number;
+  revive_count: number;
   created_at: string;      // ISO 8601形式
 }
 ```
@@ -169,8 +176,8 @@ interface ErrorResponse {
 
 | モード | ソート |
 |--------|--------|
-| Endless | endless_level DESC, time_ms ASC |
-| Time Attack | time_ms ASC |
+| Endless | score DESC |
+| Time Attack | score DESC |
 
 ### 実装例
 
@@ -248,4 +255,4 @@ export async function GET(request: NextRequest) {
 
 ---
 
-*最終更新: 2026-02-02*
+*最終更新: 2026-02-08*

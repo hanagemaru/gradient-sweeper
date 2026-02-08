@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { Board as BoardType, GRID_SIZE } from "@/types/game";
 import { Cell } from "./Cell";
 import { useSwipe } from "@/hooks/useSwipe";
@@ -10,10 +10,29 @@ interface BoardProps {
   onReveal: (row: number, col: number) => void;
   onFlag: (row: number, col: number) => void;
   disabled?: boolean;
+  showAllBombs?: boolean;
 }
 
-export function Board({ board, onReveal, onFlag, disabled = false }: BoardProps) {
+export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs = false }: BoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
+
+  // ネイティブ touchmove リスナーでブラウザのスワイプナビゲーションを防止
+  // React の SyntheticEvent は passive なので preventDefault() が効かない
+  // addEventListener で { passive: false } を指定する必要がある
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+
+    const preventNativeSwipe = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    el.addEventListener("touchmove", preventNativeSwipe, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchmove", preventNativeSwipe);
+    };
+  }, []);
 
   const getCellFromPoint = useCallback(
     (x: number, y: number): { row: number; col: number } | null => {
@@ -99,7 +118,7 @@ export function Board({ board, onReveal, onFlag, disabled = false }: BoardProps)
     >
       {board.cells.map((row, rowIndex) =>
         row.map((cell, colIndex) => (
-          <Cell key={`${rowIndex}-${colIndex}`} cell={cell} />
+          <Cell key={`${rowIndex}-${colIndex}`} cell={cell} showBomb={showAllBombs && cell.hasBomb} />
         ))
       )}
     </div>

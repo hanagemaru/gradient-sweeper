@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase";
+import { calculateScore } from "@/lib/score";
 
 // シンプルなレート制限（メモリ内）
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -29,6 +30,8 @@ interface ScoreRequest {
   time_ms: number;
   endless_level?: number;
   miss_count: number;
+  revive_count: number;
+  player_name?: string;
 }
 
 function isValidScore(body: unknown): body is ScoreRequest {
@@ -56,6 +59,13 @@ function isValidScore(body: unknown): body is ScoreRequest {
 
   // miss_count
   if (typeof b.miss_count !== "number" || b.miss_count < 0) return false;
+
+  // revive_count
+  if (typeof b.revive_count !== "number" || b.revive_count < 0) return false;
+
+  // player_name (optional)
+  if (b.player_name !== undefined && typeof b.player_name !== "string") return false;
+  if (typeof b.player_name === "string" && b.player_name.length > 50) return false;
 
   return true;
 }
@@ -92,6 +102,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // スコア計算
+    const score = calculateScore({
+      mode: body.mode as "endless" | "ta",
+      level: body.mode === "endless" ? body.endless_level! : 1,
+      timeMs: body.time_ms,
+      missCount: body.miss_count,
+      reviveCount: body.revive_count,
+    });
+
     // DB登録
     const { data, error } = await supabase
       .from("scores")
@@ -101,6 +120,9 @@ export async function POST(request: NextRequest) {
         time_ms: body.time_ms,
         endless_level: body.mode === "endless" ? body.endless_level : null,
         miss_count: body.miss_count,
+        revive_count: body.revive_count,
+        player_name: body.player_name || null,
+        score,
       })
       .select("id")
       .single();

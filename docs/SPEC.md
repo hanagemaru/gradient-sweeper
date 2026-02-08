@@ -128,8 +128,13 @@ function getCellColor(r: number, b: number): [number, number, number] {
 
 #### ランキング
 - 登録タイミング: 終了時（あきらめた時）
-- ソート: 到達面数 DESC、同面数ならタイム ASC
+- ソート: スコア降順
 - 表示: Top100
+
+スコア計算:
+```
+score = (level × 20,000) - (time_seconds) - (miss_count × 500) - (revive_count × 1,000)
+```
 
 ### 7B. Time Attack モード
 
@@ -152,8 +157,13 @@ function getCellColor(r: number, b: number): [number, number, number] {
 
 #### ランキング
 - 登録タイミング: クリア時のみ
-- ソート: タイム ASC（難易度別）
+- ソート: スコア降順（難易度別）
 - 表示: 各難易度 Top100
+
+スコア計算:
+```
+score = 1,000,000 - (time_ms ÷ 10) - (miss_count × 5,000) - (revive_count × 10,000)
+```
 
 ## 8. ポーズ機能
 
@@ -169,12 +179,37 @@ function getCellColor(r: number, b: number): [number, number, number] {
 - タイム
 - 到達面数（Endlessのみ）
 - ミス数
+- 復活回数
+- スコア
 
-### 注意
-- 盤面は表示しない
-- 名前入力なし（匿名ランキング）
+### プレイヤー名入力
+- 任意入力（最大50文字）
+- LocalStorageに保存
+- 未入力の場合は "Anonymous" として表示
+
+### スコア計算式
+
+#### エンドレスモード
+```
+score = (level × 20,000) - (time_ms ÷ 1,000) - (miss_count × 500) - (revive_count × 1,000)
+```
+
+- レベルが最重要
+- 1レベル差 = 20,000点
+- 1ミス = 500点ペナルティ（タイム500秒相当）
+- 1復活 = 1,000点ペナルティ（タイム1,000秒相当）
+
+#### タイムアタックモード
+```
+score = 1,000,000 - (time_ms ÷ 10) - (miss_count × 5,000) - (revive_count × 10,000)
+```
+
+- タイムが最重要
+- 1ミス = 5,000点ペナルティ（タイム50秒相当）
+- 1復活 = 10,000点ペナルティ（タイム100秒相当）
 
 ### アクション
+- ランキング登録（名前入力 or スキップ）
 - Rankingへ
 - Homeへ
 
@@ -217,12 +252,15 @@ CREATE TABLE scores (
   time_ms BIGINT NOT NULL,
   endless_level INT,
   miss_count INT NOT NULL DEFAULT 0,
+  revive_count INT NOT NULL DEFAULT 0,
+  player_name TEXT CHECK (length(player_name) <= 50),
+  score INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_scores_endless ON scores (endless_level DESC, time_ms ASC) 
+CREATE INDEX idx_scores_endless_score ON scores (score DESC) 
   WHERE mode = 'endless';
-CREATE INDEX idx_scores_ta ON scores (difficulty, time_ms ASC) 
+CREATE INDEX idx_scores_ta_score ON scores (difficulty, score DESC) 
   WHERE mode = 'ta';
 ```
 
@@ -275,4 +313,4 @@ interface RewardedProvider {
 
 ---
 
-*最終更新: 2026-02-02*
+*最終更新: 2026-02-08*

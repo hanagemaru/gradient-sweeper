@@ -59,12 +59,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (result.type === "bomb") {
-        // 爆弾を踏んだ
+        // 爆弾を踏んだ（エフェクト表示のため exploded 状態を維持）
         if (state.mode === "endless") {
           const newLives = state.lives - 1;
           if (newLives > 0) {
-            // 残機があれば続行
-            resetExplodedCell(newBoard);
+            // 残機があれば続行（exploded 状態のまま返す。リセットは遅延で行う）
             return {
               ...state,
               board: newBoard,
@@ -177,6 +176,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case "RESET_EXPLODED": {
+      // 爆発エフェクト後に exploded セルを hidden に戻す
+      const newBoard = cloneBoard(state.board);
+      resetExplodedCell(newBoard);
+      return {
+        ...state,
+        board: newBoard,
+      };
+    }
+
     case "NEXT_LEVEL": {
       if (state.mode !== "endless" || !state.isCleared) {
         return state;
@@ -234,6 +243,10 @@ export function useGame(initialMode: GameMode, initialDifficulty?: Difficulty) {
     dispatch({ type: "GIVE_UP" });
   }, []);
 
+  const resetExploded = useCallback(() => {
+    dispatch({ type: "RESET_EXPLODED" });
+  }, []);
+
   const nextLevel = useCallback(() => {
     dispatch({ type: "NEXT_LEVEL" });
   }, []);
@@ -250,6 +263,7 @@ export function useGame(initialMode: GameMode, initialDifficulty?: Difficulty) {
     resume,
     revive,
     giveUp,
+    resetExploded,
     nextLevel,
     reset,
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useGame } from "@/hooks/useGame";
 import { useTimer } from "@/hooks/useTimer";
@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n/useI18n";
 import { Board } from "@/components/game/Board";
 import { Timer } from "@/components/game/Timer";
 import { Lives } from "@/components/game/Lives";
+import { BombCounter } from "@/components/game/BombCounter";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverModal } from "@/components/game/GameOverModal";
 import { ClearedModal } from "@/components/game/ClearedModal";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/Icon";
 import { GameMode, Difficulty } from "@/types/game";
 import { showRewardedAd } from "@/lib/rewarded-provider";
+import { countFlags } from "@/lib/game-logic";
 
 function GameContent() {
   const searchParams = useSearchParams();
@@ -31,10 +33,14 @@ function GameContent() {
     pause,
     resume,
     revive,
+    resetExploded,
     nextLevel,
   } = useGame(mode, difficulty);
 
   const timer = useTimer();
+
+  // 答え合わせ完了フラグ（ローカルstate）
+  const [answerDone, setAnswerDone] = useState(false);
 
   // ゲーム開始時にタイマースタート
   useEffect(() => {
@@ -43,23 +49,39 @@ function GameContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ポーズ時のタイマー制御
+  // タイマー制御（統合）：クリア・ゲームオーバー・ポーズで即停止
   useEffect(() => {
-    if (state.isPaused) {
+    if (state.isGameOver || state.isCleared || state.isPaused) {
       timer.pause();
-    } else if (!state.isGameOver && !state.isCleared) {
+    } else {
       timer.resume();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isPaused, state.isGameOver, state.isCleared]);
+  }, [state.isPaused, state.isGameOver, state.isCleared, timer.pause, timer.resume]);
 
-  // ゲーム終了時のタイマー停止
+  // 爆弾を踏んだ時のエフェクト後にセルをリセット（エンドレスモードで残機あり時）
   useEffect(() => {
-    if (state.isGameOver || state.isCleared) {
-      timer.pause();
+    // exploded 状態のセルがあり、ゲームオーバーでなければ遅延リセット
+    if (state.missCount > 0 && !state.isGameOver && !state.isCleared) {
+      const timeoutId = setTimeout(() => {
+        resetExploded();
+      }, 600); // アニメーション時間（0.6s）と合わせる
+      return () => clearTimeout(timeoutId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isGameOver, state.isCleared]);
+  }, [state.missCount]);
+
+  // クリア後の答え合わせ時間（2.5秒後にモーダル表示）
+  useEffect(() => {
+    if (state.isCleared) {
+      setAnswerDone(false);
+      const timeoutId = setTimeout(() => {
+        setAnswerDone(true);
+      }, 2500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setAnswerDone(false);
+    }
+  }, [state.isCleared]);
 
   const handleRevive = useCallback(async () => {
     const result = await showRewardedAd();
@@ -76,13 +98,14 @@ function GameContent() {
       time: timer.elapsedMs.toString(),
       level: state.level.toString(),
       misses: state.missCount.toString(),
+      revives: state.reviveCount.toString(),
       cleared: "false",
     });
     if (difficulty) {
       params.set("difficulty", difficulty);
     }
     router.push(`/result?${params.toString()}`);
-  }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, router]);
+  }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, state.reviveCount, router]);
 
   const handleNextLevel = useCallback(() => {
     nextLevel();
@@ -96,13 +119,14 @@ function GameContent() {
       time: timer.elapsedMs.toString(),
       level: state.level.toString(),
       misses: state.missCount.toString(),
+      revives: state.reviveCount.toString(),
       cleared: "true",
     });
     if (difficulty) {
       params.set("difficulty", difficulty);
     }
     router.push(`/result?${params.toString()}`);
-  }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, router]);
+  }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, state.reviveCount, router]);
 
   return (
     <main className="flex flex-col items-center min-h-screen p-4">
@@ -111,6 +135,8 @@ function GameContent() {
         <Timer elapsedMs={timer.elapsedMs} />
         
         <div className="flex items-center gap-4">
+          <BombCounter remaining={state.bombCount - countFlags(state.board)} />
+          
           {mode === "endless" && <Lives lives={state.lives} />}
           
           {mode === "endless" && (
@@ -128,9 +154,10 @@ function GameContent() {
           onReveal={revealCell}
           onFlag={toggleFlag}
           disabled={state.isPaused || state.isGameOver || state.isCleared}
+          showAllBombs={state.isCleared && !answerDone}
         />
         
-        {state.isPaused && <PauseOverlay onResume={resume} />}
+        {state.isPaused && <PauseOverlay onResume={resume} onQuit={handleGiveUp} />}
       </div>
 
       {/* ポーズボタン */}
@@ -155,7 +182,7 @@ function GameContent() {
       />
 
       <ClearedModal
-        isOpen={state.isCleared}
+        isOpen={state.isCleared && answerDone}
         mode={mode}
         onNext={handleNextLevel}
         onFinish={handleFinish}

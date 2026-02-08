@@ -14,9 +14,11 @@ interface UseTimerReturn {
 
 export function useTimer(): UseTimerReturn {
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastTickRef = useRef<number>(0);
+  // isRunning を ref で管理して stale closure を防ぐ
+  const isRunningRef = useRef(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const clearTimerInterval = useCallback(() => {
     if (intervalRef.current) {
@@ -25,46 +27,47 @@ export function useTimer(): UseTimerReturn {
     }
   }, []);
 
-  const start = useCallback(() => {
-    if (isRunning) return;
-
-    setIsRunning(true);
-    lastTickRef.current = Date.now();
-
-    intervalRef.current = setInterval(() => {
-      const now = Date.now();
-      const delta = now - lastTickRef.current;
-      lastTickRef.current = now;
-      setElapsedMs((prev) => prev + delta);
-    }, 100); // 100msごとに更新
-  }, [isRunning]);
-
-  const stop = useCallback(() => {
+  const startInterval = useCallback(() => {
     clearTimerInterval();
-    setIsRunning(false);
-  }, [clearTimerInterval]);
-
-  const pause = useCallback(() => {
-    clearTimerInterval();
-    setIsRunning(false);
-  }, [clearTimerInterval]);
-
-  const resume = useCallback(() => {
-    if (isRunning) return;
-
-    setIsRunning(true);
     lastTickRef.current = Date.now();
-
     intervalRef.current = setInterval(() => {
       const now = Date.now();
       const delta = now - lastTickRef.current;
       lastTickRef.current = now;
       setElapsedMs((prev) => prev + delta);
     }, 100);
-  }, [isRunning]);
+  }, [clearTimerInterval]);
+
+  // すべての関数は ref を参照するので依存配列が安定し、stale closure が起きない
+  const start = useCallback(() => {
+    if (isRunningRef.current) return;
+    isRunningRef.current = true;
+    setIsRunning(true);
+    startInterval();
+  }, [startInterval]);
+
+  const stop = useCallback(() => {
+    clearTimerInterval();
+    isRunningRef.current = false;
+    setIsRunning(false);
+  }, [clearTimerInterval]);
+
+  const pause = useCallback(() => {
+    clearTimerInterval();
+    isRunningRef.current = false;
+    setIsRunning(false);
+  }, [clearTimerInterval]);
+
+  const resume = useCallback(() => {
+    if (isRunningRef.current) return;
+    isRunningRef.current = true;
+    setIsRunning(true);
+    startInterval();
+  }, [startInterval]);
 
   const reset = useCallback(() => {
     clearTimerInterval();
+    isRunningRef.current = false;
     setIsRunning(false);
     setElapsedMs(0);
   }, [clearTimerInterval]);

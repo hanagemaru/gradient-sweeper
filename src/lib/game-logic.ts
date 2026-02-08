@@ -244,6 +244,34 @@ export function resetExplodedCell(board: Board): void {
 }
 
 /**
+ * フラグが立っているセルの数をカウント
+ */
+export function countFlags(board: Board): number {
+  let count = 0;
+  for (const row of board.cells) {
+    for (const cell of row) {
+      if (cell.state === "flagged") {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * すべての爆弾を表示状態にする（答え合わせ用）
+ */
+export function revealAllBombs(board: Board): void {
+  for (const row of board.cells) {
+    for (const cell of row) {
+      if (cell.hasBomb && cell.state !== "revealed") {
+        cell.state = "revealed";
+      }
+    }
+  }
+}
+
+/**
  * 盤面を深くコピー
  */
 export function cloneBoard(board: Board): Board {
