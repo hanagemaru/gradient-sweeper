@@ -12,6 +12,7 @@ interface GameOverModalProps {
   reviveCount: number;
   onRevive: () => void;
   onGiveUp: () => void;
+  onGoHome: () => void;
 }
 
 export function GameOverModal({
@@ -20,6 +21,7 @@ export function GameOverModal({
   reviveCount,
   onRevive,
   onGiveUp,
+  onGoHome,
 }: GameOverModalProps) {
   const { t } = useI18n();
 
@@ -42,12 +44,19 @@ export function GameOverModal({
           {canRevive && (
             <Button onClick={onRevive} variant="primary" className="w-full">
               <Icon name="ad" />
-              {t("gameOver.revive")}
+              {mode === "ta" ? t("gameOver.reviveWithPenalty") : t("gameOver.revive")}
             </Button>
           )}
-          <Button onClick={onGiveUp} variant="secondary" className="w-full">
-            {t("gameOver.giveUp")}
-          </Button>
+          {mode === "ta" ? (
+            <Button onClick={onGoHome} variant="secondary" className="w-full">
+              <Icon name="home" />
+              {t("gameOver.backToHome")}
+            </Button>
+          ) : (
+            <Button onClick={onGiveUp} variant="secondary" className="w-full">
+              {t("gameOver.giveUp")}
+            </Button>
+          )}
         </div>
       </div>
     </Modal>

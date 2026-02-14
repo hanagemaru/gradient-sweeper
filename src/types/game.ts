@@ -41,11 +41,17 @@ export interface GameState {
   isGameOver: boolean;
   isCleared: boolean;
   elapsedMs: number;
+  score: number;                    // Endless用リアルタイムスコア
+  penaltyMs: number;               // TA用累積ペナルティ時間
+  lastScoreChange: number | null;   // 直前のスコア変動（popup表示用）
+  lastRevealMs: number | null;      // 直前のセル開放タイムスタンプ（スピードボーナス用）
+  speedCombo: number;               // 連続スピードボーナス回数
+  levelMisses: number;              // 現レベルでのミス数（パーフェクトボーナス判定用）
 }
 
 // ゲームアクション
 export type GameAction =
-  | { type: "REVEAL_CELL"; row: number; col: number }
+  | { type: "REVEAL_CELL"; row: number; col: number; timestamp: number }
   | { type: "TOGGLE_FLAG"; row: number; col: number }
   | { type: "PAUSE" }
   | { type: "RESUME" }
@@ -66,11 +72,13 @@ export type RevealResult =
 export interface ScoreRequest {
   mode: GameMode;
   difficulty?: Difficulty;
-  time_ms: number;
+  time_ms?: number;          // TA用プレイ時間
+  penalty_ms?: number;       // TA用ペナルティ時間
   endless_level?: number;
   miss_count: number;
   revive_count: number;
   player_name?: string;
+  score?: number;            // Endless用クライアント算出スコア
 }
 
 // ランキングエントリ
@@ -78,7 +86,8 @@ export interface LeaderboardEntry {
   rank: number;
   player_name?: string;
   score: number;
-  time_ms: number;
+  time_ms?: number;
+  penalty_ms?: number;
   endless_level?: number;
   miss_count: number;
   revive_count: number;
@@ -109,3 +118,13 @@ export const REVIVE_LIVES = 3;
 
 // 最大復活回数（Time Attack）
 export const MAX_REVIVES_TA = 2;
+
+// スコア定数（Endless）
+export const SCORE_PER_CELL = 100;         // セル1個あたりの基礎スコア
+export const LEVEL_CLEAR_BONUS = 1000;     // レベルクリアボーナス基礎値
+export const MISS_PENALTY = 10000;         // ミスペナルティ
+export const SPEED_BONUS_THRESHOLD_MS = 1000; // スピードボーナス判定閾値（1秒）
+export const PERFECT_BONUS_MULTIPLIER = 1; // パーフェクトボーナス = クリアボーナスと同額
+
+// TA復活ペナルティ（30秒）
+export const TA_REVIVE_PENALTY_MS = 30000;

@@ -12,6 +12,12 @@ import {
   MAX_BOMBS,
   REVIVE_LIVES,
   MAX_REVIVES_TA,
+  SCORE_PER_CELL,
+  LEVEL_CLEAR_BONUS,
+  MISS_PENALTY,
+  TA_REVIVE_PENALTY_MS,
+  SPEED_BONUS_THRESHOLD_MS,
+  PERFECT_BONUS_MULTIPLIER,
 } from "@/types/game";
 import {
   generateBoard,
@@ -41,7 +47,25 @@ function createInitialState(mode: GameMode, difficulty?: Difficulty): GameState 
     isGameOver: false,
     isCleared: false,
     elapsedMs: 0,
+    score: 0,
+    penaltyMs: 0,
+    lastScoreChange: null,
+    lastRevealMs: null,
+    speedCombo: 0,
+    levelMisses: 0,
   };
+}
+
+/**
+ * スピードボーナスのコンボ倍率を返す
+ * この倍率 × 1セル基礎スコアが追加ボーナスとなる
+ * 1回: FAST! ×0.5 / 2回: COMBO! ×1.0 / 3回: GREAT! ×1.5 / 4回以上: AMAZING! ×2.0
+ */
+function getComboRate(combo: number): number {
+  if (combo >= 4) return 2.0;
+  if (combo >= 3) return 1.5;
+  if (combo >= 2) return 1.0;
+  return 0.5;
 }
 
 function gameReducer(state: GameState, action: GameAction): GameState {
@@ -61,14 +85,21 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (result.type === "bomb") {
         // 爆弾を踏んだ（エフェクト表示のため exploded 状態を維持）
         if (state.mode === "endless") {
+          const newScore = Math.max(0, state.score - MISS_PENALTY);
+          const scoreChange = newScore - state.score; // 負の値
           const newLives = state.lives - 1;
           if (newLives > 0) {
-            // 残機があれば続行（exploded 状態のまま返す。リセットは遅延で行う）
+            // 残機があれば続行
             return {
               ...state,
               board: newBoard,
               lives: newLives,
               missCount: state.missCount + 1,
+              score: newScore,
+              lastScoreChange: scoreChange,
+              speedCombo: 0,
+              lastRevealMs: null,
+              levelMisses: state.levelMisses + 1,
             };
           } else {
             // 残機切れ → ゲームオーバー
@@ -78,10 +109,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               lives: 0,
               missCount: state.missCount + 1,
               isGameOver: true,
+              score: newScore,
+              lastScoreChange: scoreChange,
+              speedCombo: 0,
+              lastRevealMs: null,
+              levelMisses: state.levelMisses + 1,
             };
           }
         } else {
-          // Time Attack
+          // Time Attack: 即ゲームオーバー
           return {
             ...state,
             board: newBoard,
@@ -91,18 +127,51 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
+      // セル開放スコア加算（Endlessのみ）
+      let newScore = state.score;
+      let scoreChange: number | null = null;
+      let newSpeedCombo = 0;
+
+      if (state.mode === "endless" && result.type === "reveal") {
+        // 1. 通常スコア（連鎖含む全セル分）
+        const cellScore = result.cells.length * SCORE_PER_CELL * state.level;
+        newScore = state.score + cellScore;
+        scoreChange = cellScore;
+
+        // 2. スピードボーナス判定（1セル分基準）
+        if (
+          state.lastRevealMs !== null &&
+          (action.timestamp - state.lastRevealMs) <= SPEED_BONUS_THRESHOLD_MS
+        ) {
+          newSpeedCombo = state.speedCombo + 1;
+          const speedBonus = Math.floor(SCORE_PER_CELL * state.level * getComboRate(newSpeedCombo));
+          newScore += speedBonus;
+          scoreChange += speedBonus;
+        }
+        // 閾値を超えた場合はコンボリセット（newSpeedCombo は 0 のまま）
+      }
+
       // 勝利判定
+      // ボーナスはここでは加算しない（ClearedModal演出後にNEXT_LEVELで加算）
       if (checkWin(newBoard)) {
         return {
           ...state,
           board: newBoard,
           isCleared: true,
+          score: newScore,
+          lastScoreChange: scoreChange,
+          lastRevealMs: action.timestamp,
+          speedCombo: newSpeedCombo,
         };
       }
 
       return {
         ...state,
         board: newBoard,
+        score: newScore,
+        lastScoreChange: scoreChange,
+        lastRevealMs: action.timestamp,
+        speedCombo: newSpeedCombo,
       };
     }
 
@@ -146,15 +215,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case "REVIVE": {
       if (state.mode === "endless") {
-        // Endless: 残機を回復
+        // Endless: 残機を回復（復活ペナルティなし）
         resetExplodedCell(state.board);
         return {
           ...state,
           lives: REVIVE_LIVES,
+          reviveCount: state.reviveCount + 1, // バグ修正: reviveCount加算
           isGameOver: false,
         };
       } else {
-        // Time Attack: 復活回数チェック
+        // Time Attack: 復活回数チェック + タイムペナルティ
         if (state.reviveCount >= MAX_REVIVES_TA) {
           return state;
         }
@@ -164,6 +234,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           ...state,
           board: newBoard,
           reviveCount: state.reviveCount + 1,
+          penaltyMs: state.penaltyMs + TA_REVIVE_PENALTY_MS,
           isGameOver: false,
         };
       }
@@ -191,15 +262,27 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
+      // クリアボーナスをここで確定加算（ClearedModal演出後に呼ばれる）
+      const clearBonus = LEVEL_CLEAR_BONUS * state.level;
+      const perfect = state.levelMisses === 0
+        ? LEVEL_CLEAR_BONUS * state.level * PERFECT_BONUS_MULTIPLIER
+        : 0;
+      const bonusTotal = clearBonus + perfect;
+
       const newBombCount = Math.min(state.bombCount + 1, MAX_BOMBS);
       const newBoard = generateBoard(newBombCount);
 
       return {
         ...state,
+        score: state.score + bonusTotal,
         board: newBoard,
         bombCount: newBombCount,
         level: state.level + 1,
         isCleared: false,
+        lastScoreChange: null,
+        lastRevealMs: null,
+        speedCombo: 0,
+        levelMisses: 0,
       };
     }
 
@@ -219,8 +302,8 @@ export function useGame(initialMode: GameMode, initialDifficulty?: Difficulty) {
     ({ mode, difficulty }) => createInitialState(mode, difficulty)
   );
 
-  const revealCellAction = useCallback((row: number, col: number) => {
-    dispatch({ type: "REVEAL_CELL", row, col });
+  const revealCellAction = useCallback((row: number, col: number, timestamp: number) => {
+    dispatch({ type: "REVEAL_CELL", row, col, timestamp });
   }, []);
 
   const toggleFlagAction = useCallback((row: number, col: number) => {

@@ -20,7 +20,8 @@ type IconName =
   | "back"
   | "check"
   | "x"
-  | "ad";
+  | "ad"
+  | "menu";
 
 interface IconProps {
   name: IconName;
@@ -47,6 +48,7 @@ const EMOJI_MAP: Record<IconName, string> = {
   check: "✓",
   x: "✕",
   ad: "📺",
+  menu: "☰",
 };
 
 const SIZE_CLASSES = {

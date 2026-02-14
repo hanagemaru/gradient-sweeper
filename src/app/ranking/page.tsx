@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/useI18n";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/Icon";
 import { GameMode, Difficulty, LeaderboardEntry } from "@/types/game";
+import { formatTime } from "@/hooks/useTimer";
 
 function RankingContent() {
   const searchParams = useSearchParams();
@@ -106,7 +107,9 @@ function RankingContent() {
               <tr>
                 <th className="py-3 px-4 text-left text-gray-100">{t("ranking.rank")}</th>
                 <th className="py-3 px-4 text-left text-gray-100">{t("ranking.name")}</th>
-                <th className="py-3 px-4 text-right text-gray-100">{t("ranking.score")}</th>
+                <th className="py-3 px-4 text-right text-gray-100">
+                  {mode === "endless" ? t("ranking.score") : t("ranking.finalTime")}
+                </th>
                 {mode === "endless" && (
                   <th className="py-3 px-4 text-right text-gray-100">{t("ranking.level")}</th>
                 )}
@@ -126,7 +129,9 @@ function RankingContent() {
                     {entry.player_name || "Anonymous"}
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-white">
-                    {entry.score.toLocaleString()}
+                    {mode === "endless"
+                      ? entry.score.toLocaleString()
+                      : formatTime(entry.score)}
                   </td>
                   {mode === "endless" && (
                     <td className="py-3 px-4 text-right font-semibold text-white">

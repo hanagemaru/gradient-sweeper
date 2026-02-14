@@ -194,4 +194,46 @@ WHERE mode = 'ta';
 
 ---
 
-**最終更新**: 2026-02-08
+## v2: スコアリングシステム全面改修（2026-02-14）
+
+### 概要
+
+エンドレスモードをリアルタイムスコア加算方式に、タイムアタックモードをタイムのみ方式に変更。
+
+### 変更内容
+
+1. `penalty_ms` カラム追加（TA復活ペナルティ用）
+2. TA用インデックスを昇順に変更（短タイムが上位）
+3. 既存データの全削除（スコア計算方式が根本的に変更されたため）
+
+### マイグレーションSQL
+
+```sql
+-- 1. 既存データを全削除（スコア計算方式が変更されたため）
+DELETE FROM scores;
+
+-- 2. penalty_ms カラムを追加
+ALTER TABLE scores 
+ADD COLUMN IF NOT EXISTS penalty_ms BIGINT DEFAULT 0;
+
+-- 3. time_ms を NULL 許可に変更（Endlessではタイム不要）
+ALTER TABLE scores 
+ALTER COLUMN time_ms DROP NOT NULL;
+
+-- 4. TA用インデックスを昇順に変更（短タイムが上位）
+DROP INDEX IF EXISTS idx_scores_ta_score;
+CREATE INDEX idx_scores_ta_score 
+ON scores (difficulty, score ASC) 
+WHERE mode = 'ta';
+
+-- Endless用インデックスはそのまま（スコア降順）
+```
+
+### 新しいスコアの意味
+
+- **Endless**: `score` = リアルタイム加算スコア（セル開放 + ボーナス - ミスペナルティ）
+- **TA**: `score` = 最終タイム(ms) = `time_ms` + `penalty_ms`（小さいほど上位）
+
+---
+
+**最終更新**: 2026-02-14

@@ -91,15 +91,15 @@ export function useTimer(): UseTimerReturn {
 }
 
 /**
- * ミリ秒を MM:SS.ss 形式にフォーマット
+ * ミリ秒を MM:SS.s 形式にフォーマット（0.1秒単位）
  */
 export function formatTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const centiseconds = Math.floor((ms % 1000) / 10);
+  const deciseconds = Math.floor((ms % 1000) / 100);
 
   return `${minutes.toString().padStart(2, "0")}:${seconds
     .toString()
-    .padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`;
+    .padStart(2, "0")}.${deciseconds}`;
 }

@@ -47,7 +47,7 @@ export function Modal({ isOpen, onClose, children, hideClose = false }: ModalPro
       />
 
       {/* モーダルコンテンツ */}
-      <div className="relative bg-gray-900 rounded-xl p-6 m-4 max-w-md w-full shadow-2xl">
+      <div className="relative bg-gray-900 rounded-xl p-6 m-4 max-w-md w-full shadow-2xl text-white">
         {!hideClose && onClose && (
           <button
             onClick={onClose}

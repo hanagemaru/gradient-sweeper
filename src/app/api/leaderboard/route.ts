@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase";
 
-// モックデータ（Supabase未設定時用）
+// モックデータ（Supabase未設定時用）- 新スコアリングシステム対応
 const mockData = {
   endless: [
-    { rank: 1, player_name: "Player1", score: 498375, time_ms: 125400, endless_level: 25, miss_count: 3, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
-    { rank: 2, player_name: "Player2", score: 398200, time_ms: 98200, endless_level: 20, miss_count: 2, revive_count: 0, created_at: "2026-02-01T09:00:00Z" },
-    { rank: 3, player_name: "Player3", score: 351500, time_ms: 156000, endless_level: 18, miss_count: 5, revive_count: 1, created_at: "2026-01-31T15:00:00Z" },
+    { rank: 1, player_name: "Player1", score: 520000, endless_level: 12, miss_count: 1, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
+    { rank: 2, player_name: "Player2", score: 380000, endless_level: 10, miss_count: 3, revive_count: 1, created_at: "2026-02-01T09:00:00Z" },
+    { rank: 3, player_name: "Player3", score: 245000, endless_level: 8, miss_count: 5, revive_count: 2, created_at: "2026-01-31T15:00:00Z" },
   ],
   ta: {
     easy: [
-      { rank: 1, player_name: "SpeedRunner", score: 998480, time_ms: 15200, miss_count: 0, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
-      { rank: 2, player_name: "FastPlayer", score: 993650, time_ms: 18500, miss_count: 1, revive_count: 0, created_at: "2026-02-01T09:00:00Z" },
+      { rank: 1, player_name: "SpeedRunner", score: 15200, time_ms: 15200, penalty_ms: 0, miss_count: 0, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
+      { rank: 2, player_name: "FastPlayer", score: 48500, time_ms: 18500, penalty_ms: 30000, miss_count: 1, revive_count: 1, created_at: "2026-02-01T09:00:00Z" },
     ],
     mid: [
-      { rank: 1, player_name: "ProGamer", score: 991440, time_ms: 35600, miss_count: 1, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
+      { rank: 1, player_name: "ProGamer", score: 35600, time_ms: 35600, penalty_ms: 0, miss_count: 0, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
     ],
     hard: [
-      { rank: 1, player_name: "Expert", score: 982770, time_ms: 72300, miss_count: 2, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
+      { rank: 1, player_name: "Expert", score: 72300, time_ms: 72300, penalty_ms: 0, miss_count: 0, revive_count: 0, created_at: "2026-02-01T10:00:00Z" },
     ],
   },
 };
@@ -57,11 +57,15 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient();
 
+    // Endless: スコア降順（高スコアが上位）
+    // TA: スコア昇順（短タイムが上位。scoreには最終タイム(ms)が格納されている）
+    const ascending = mode === "ta";
+
     let query = supabase
       .from("scores")
-      .select("player_name, score, time_ms, endless_level, miss_count, revive_count, created_at")
+      .select("player_name, score, time_ms, penalty_ms, endless_level, miss_count, revive_count, created_at")
       .eq("mode", mode)
-      .order("score", { ascending: false })
+      .order("score", { ascending })
       .limit(100);
 
     if (mode === "ta") {

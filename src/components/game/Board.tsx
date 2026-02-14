@@ -11,9 +11,10 @@ interface BoardProps {
   onFlag: (row: number, col: number) => void;
   disabled?: boolean;
   showAllBombs?: boolean;
+  maskCells?: boolean;
 }
 
-export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs = false }: BoardProps) {
+export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs = false, maskCells = false }: BoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
 
   // ネイティブ touchmove リスナーでブラウザのスワイプナビゲーションを防止
@@ -118,7 +119,7 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
     >
       {board.cells.map((row, rowIndex) =>
         row.map((cell, colIndex) => (
-          <Cell key={`${rowIndex}-${colIndex}`} cell={cell} showBomb={showAllBombs && cell.hasBomb} />
+          <Cell key={`${rowIndex}-${colIndex}`} cell={cell} showBomb={showAllBombs && cell.hasBomb} masked={maskCells} />
         ))
       )}
     </div>

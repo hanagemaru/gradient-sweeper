@@ -72,3 +72,85 @@ body {
 .bomb-explode {
   animation: bomb-explode 0.6s ease-in-out;
 }
+
+/* スコアポップアップ: 上方向に移動しつつフェードアウト */
+@keyframes score-float-up {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  70% {
+    opacity: 0.8;
+    transform: translateX(-50%) translateY(-30px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-50px);
+  }
+}
+
+.score-float-up {
+  animation: score-float-up 1s ease-out forwards;
+}
+
+/* スコアパルス: カウントアップやボーナス表示時 */
+@keyframes score-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.score-pulse {
+  animation: score-pulse 0.6s ease-in-out;
+}
+
+/* スコアグロー: 金色スコア用 */
+.score-glow {
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.5), 0 0 16px rgba(251, 191, 36, 0.3);
+}
+
+/* マイルストーンフラッシュ: 画面全体 */
+@keyframes milestone-flash {
+  0% {
+    background-color: rgba(251, 191, 36, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.milestone-flash {
+  animation: milestone-flash 2s ease-out forwards;
+}
+
+/* マイルストーンテキストスケール */
+@keyframes milestone-scale-up {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  60% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+.milestone-scale-up {
+  animation: milestone-scale-up 2s ease-out forwards;
+}

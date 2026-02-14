@@ -7,13 +7,21 @@ import { Icon } from "@/components/Icon";
 interface CellProps {
   cell: CellType;
   showBomb?: boolean;
+  masked?: boolean;
 }
 
-export function Cell({ cell, showBomb = false }: CellProps) {
+export function Cell({ cell, showBomb = false, masked = false }: CellProps) {
   const { state, adjacentRed, adjacentBlue, hasBomb, bombType } = cell;
 
   // スタイル計算
   const getCellStyle = (): React.CSSProperties => {
+    // マスク時：全セルを閉じた状態で表示
+    if (masked) {
+      return {
+        backgroundColor: "#374151", // gray-700
+      };
+    }
+
     // 答え合わせ中：爆弾セルをハイライト
     if (showBomb && hasBomb) {
       return {
@@ -42,13 +50,18 @@ export function Cell({ cell, showBomb = false }: CellProps) {
   
   // アニメーションクラス
   const getAnimationClass = (): string => {
-    if (state === "exploded") {
+    if (!masked && state === "exploded") {
       return "bomb-explode";
     }
     return "";
   };
 
   const renderContent = () => {
+    // マスク時：何も表示しない
+    if (masked) {
+      return null;
+    }
+
     // 答え合わせ中：爆弾を表示
     if (showBomb && hasBomb) {
       return <Icon name={bombType === "red" ? "bomb-red" : "bomb-blue"} size="lg" />;

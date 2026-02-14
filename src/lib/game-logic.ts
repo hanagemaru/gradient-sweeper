@@ -239,7 +239,7 @@ export function getExplodedCell(board: Board): Cell | null {
 export function resetExplodedCell(board: Board): void {
   const cell = getExplodedCell(board);
   if (cell) {
-    cell.state = "hidden";
+    cell.state = "flagged";
   }
 }
 

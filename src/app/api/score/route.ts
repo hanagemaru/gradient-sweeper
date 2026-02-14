@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase";
-import { calculateScore } from "@/lib/score";
 
 // シンプルなレート制限（メモリ内）
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -24,17 +23,22 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-interface ScoreRequest {
+interface ScoreRequestBody {
   mode: string;
   difficulty?: string;
-  time_ms: number;
+  // Endless用
+  score?: number;
   endless_level?: number;
+  // TA用
+  time_ms?: number;
+  penalty_ms?: number;
+  // 共通
   miss_count: number;
   revive_count: number;
   player_name?: string;
 }
 
-function isValidScore(body: unknown): body is ScoreRequest {
+function isValidScore(body: unknown): body is ScoreRequestBody {
   if (!body || typeof body !== "object") return false;
 
   const b = body as Record<string, unknown>;
@@ -47,14 +51,22 @@ function isValidScore(body: unknown): body is ScoreRequest {
     if (!["easy", "mid", "hard"].includes(b.difficulty as string)) return false;
   }
 
-  // time_ms
-  if (typeof b.time_ms !== "number" || b.time_ms < 0 || b.time_ms > 86400000) {
-    return false;
+  // Endless: score と endless_level が必須
+  if (b.mode === "endless") {
+    if (typeof b.score !== "number" || b.score < 0) return false;
+    if (typeof b.endless_level !== "number" || b.endless_level < 1) return false;
   }
 
-  // endless_level（Endlessの場合必須）
-  if (b.mode === "endless") {
-    if (typeof b.endless_level !== "number" || b.endless_level < 1) return false;
+  // TA: time_ms が必須
+  if (b.mode === "ta") {
+    if (typeof b.time_ms !== "number" || b.time_ms < 0 || b.time_ms > 86400000) {
+      return false;
+    }
+  }
+
+  // penalty_ms（TA用、オプション）
+  if (b.penalty_ms !== undefined && (typeof b.penalty_ms !== "number" || b.penalty_ms < 0)) {
+    return false;
   }
 
   // miss_count
@@ -103,13 +115,16 @@ export async function POST(request: NextRequest) {
     }
 
     // スコア計算
-    const score = calculateScore({
-      mode: body.mode as "endless" | "ta",
-      level: body.mode === "endless" ? body.endless_level! : 1,
-      timeMs: body.time_ms,
-      missCount: body.miss_count,
-      reviveCount: body.revive_count,
-    });
+    // Endless: クライアントから受け取った score をそのまま使用
+    // TA: 最終タイム = time_ms + penalty_ms をスコアとして保存（ランキング昇順ソート用）
+    let dbScore: number;
+    if (body.mode === "endless") {
+      dbScore = body.score!;
+    } else {
+      const timeMsVal = body.time_ms || 0;
+      const penaltyMsVal = body.penalty_ms || 0;
+      dbScore = timeMsVal + penaltyMsVal;
+    }
 
     // DB登録
     const { data, error } = await supabase
@@ -117,12 +132,13 @@ export async function POST(request: NextRequest) {
       .insert({
         mode: body.mode,
         difficulty: body.mode === "ta" ? body.difficulty : null,
-        time_ms: body.time_ms,
+        time_ms: body.mode === "ta" ? body.time_ms : null,
+        penalty_ms: body.penalty_ms || null,
         endless_level: body.mode === "endless" ? body.endless_level : null,
         miss_count: body.miss_count,
         revive_count: body.revive_count,
         player_name: body.player_name || null,
-        score,
+        score: dbScore,
       })
       .select("id")
       .single();
