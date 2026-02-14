@@ -14,7 +14,7 @@ import { GameOverModal } from "@/components/game/GameOverModal";
 import { ClearedModal } from "@/components/game/ClearedModal";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/Icon";
-import { GameMode, Difficulty } from "@/types/game";
+import { GameMode, Difficulty, MAX_REVIVES_TA } from "@/types/game";
 import { showRewardedAd } from "@/lib/rewarded-provider";
 import { countFlags } from "@/lib/game-logic";
 
@@ -91,7 +91,7 @@ function GameContent() {
   }, [revive, timer]);
 
   const handleGiveUp = useCallback(() => {
-    // 結果画面へ遷移
+    // ゲームオーバー時の Give Up → 結果画面へ遷移
     const params = new URLSearchParams({
       mode,
       time: timer.elapsedMs.toString(),
@@ -105,6 +105,18 @@ function GameContent() {
     }
     router.push(`/result?${params.toString()}`);
   }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, state.reviveCount, router]);
+
+  const handleQuitFromPause = useCallback(() => {
+    // ポーズからの Quit → 直接ホームへ（スコア登録なし）
+    router.push('/');
+  }, [router]);
+
+  // タイムアタックで復活不可の場合、ゲームオーバー時に直接Result画面へ遷移
+  useEffect(() => {
+    if (state.isGameOver && mode === "ta" && state.reviveCount >= MAX_REVIVES_TA) {
+      handleGiveUp();
+    }
+  }, [state.isGameOver, mode, state.reviveCount, handleGiveUp]);
 
   const handleNextLevel = useCallback(() => {
     nextLevel();
@@ -156,7 +168,7 @@ function GameContent() {
           showAllBombs={state.isCleared && !answerDone}
         />
         
-        {state.isPaused && <PauseOverlay onResume={resume} onQuit={handleGiveUp} />}
+        {state.isPaused && <PauseOverlay onResume={resume} onQuit={handleQuitFromPause} />}
       </div>
 
       {/* ポーズボタン */}
@@ -173,7 +185,7 @@ function GameContent() {
 
       {/* モーダル */}
       <GameOverModal
-        isOpen={state.isGameOver}
+        isOpen={state.isGameOver && !(mode === "ta" && state.reviveCount >= MAX_REVIVES_TA)}
         mode={mode}
         reviveCount={state.reviveCount}
         onRevive={handleRevive}

@@ -49,8 +49,11 @@
 Home → Endless開始 → Game
 Home → Time Attack → /ta → 難易度選択 → Game
 Home → Ranking
-Game → Clear/Miss → Result
-Result → Ranking or Home
+Game(ポーズ) → Quit → Home
+Game(ミス) → GameOver → 復活 or GiveUp → Result
+Game(TAで復活不可) → Result
+Game(Clear) → Result
+Result → スコア登録でRanking / スキップでHome
 ```
 
 ## 4. 操作仕様（スマホ）
@@ -151,9 +154,10 @@ score = (level × 20,000) - (time_seconds) - (miss_count × 500) - (revive_count
 | 復活回数 | 最大2回まで（3ミスで終了） |
 
 #### ミス時の挙動
-1. ゲームオーバー画面表示
+1. 復活回数が残っている場合はゲームオーバー画面表示
 2. リワード広告で復活（最大2回）or あきらめる
 3. 復活時：踏んだマスだけ未開に戻し、タイマー継続
+4. 復活回数を使い切った状態でミスした場合は、ゲーム画面から直接Resultへ遷移
 
 #### ランキング
 - 登録タイミング: クリア時のみ
@@ -170,6 +174,7 @@ score = 1,000,000 - (time_ms ÷ 10) - (miss_count × 5,000) - (revive_count × 1
 - 盤面を隠す（オーバーレイ表示）
 - タイマー停止
 - 操作無効
+- Quit選択時はResultを経由せずHomeへ直接遷移（スコア登録なし）
 
 ## 9. Result画面
 
@@ -210,8 +215,8 @@ score = 1,000,000 - (time_ms ÷ 10) - (miss_count × 5,000) - (revive_count × 1
 
 ### アクション
 - ランキング登録（名前入力 or スキップ）
-- Rankingへ
-- Homeへ
+- 登録成功後はRankingへ自動遷移
+- スキップ時はHomeへ直接遷移
 
 ## 10. 多言語対応
 
@@ -313,4 +318,4 @@ interface RewardedProvider {
 
 ---
 
-*最終更新: 2026-02-08*
+*最終更新: 2026-02-11*

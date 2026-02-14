@@ -21,7 +21,7 @@ export const en: Translations = {
     pause: "Pause",
     resume: "Resume",
     paused: "Paused",
-    quit: "Quit Game",
+    quit: "Back to Home",
   },
   gameOver: {
     title: "Game Over",
@@ -45,7 +45,7 @@ export const en: Translations = {
     playerName: "Player Name",
     enterName: "Enter your name",
     submit: "Submit",
-    skip: "Skip",
+    skip: "Skip & Go Home",
     toRanking: "View Ranking",
     toHome: "Back to Home",
   },

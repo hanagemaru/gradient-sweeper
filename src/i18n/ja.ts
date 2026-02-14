@@ -19,7 +19,7 @@ export const ja = {
     pause: "一時停止",
     resume: "再開",
     paused: "ポーズ中",
-    quit: "ゲームをやめる",
+    quit: "ホームに戻る",
   },
   gameOver: {
     title: "ゲームオーバー",
@@ -43,7 +43,7 @@ export const ja = {
     playerName: "プレイヤー名",
     enterName: "名前を入力してください",
     submit: "登録する",
-    skip: "スキップ",
+    skip: "登録せずにホームへ",
     toRanking: "ランキングを見る",
     toHome: "ホームに戻る",
   },
