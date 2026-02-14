@@ -27,8 +27,13 @@
 interface ScoreRequest {
   mode: 'endless' | 'ta';
   difficulty?: 'easy' | 'mid' | 'hard';  // TAの場合必須
-  time_ms: number;                        // ミリ秒
+  // Endless用
+  score?: number;                         // Endlessの場合必須（クライアント算出スコア）
   endless_level?: number;                 // Endlessの場合必須
+  // TA用
+  time_ms?: number;                       // TAの場合必須（プレイ時間ミリ秒）
+  penalty_ms?: number;                    // TA用（復活ペナルティ合計、省略時0）
+  // 共通
   miss_count: number;
   revive_count: number;
   player_name?: string;                   // 任意（最大50文字）
@@ -61,8 +66,10 @@ interface ErrorResponse {
 |------|--------|
 | mode | 'endless' または 'ta' |
 | difficulty | TAの場合必須、'easy'/'mid'/'hard' |
-| time_ms | 0以上、86400000以下（24時間） |
+| score | Endlessの場合必須、0以上 |
 | endless_level | Endlessの場合必須、1以上 |
+| time_ms | TAの場合必須、0以上、86400000以下（24時間） |
+| penalty_ms | TA用、省略可、0以上 |
 | miss_count | 0以上 |
 | revive_count | 0以上 |
 | player_name | 任意、50文字以内 |
@@ -255,4 +262,4 @@ export async function GET(request: NextRequest) {
 
 ---
 
-*最終更新: 2026-02-08*
+*最終更新: 2026-02-15*

@@ -295,15 +295,19 @@ function advanceLevel(state: GameState): GameState {
 
 ## 8. スコア計算
 
-### 8.1 エンドレスモード
-```
-score = (level × 20,000) - (time_seconds) - (miss_count × 500) - (revive_count × 1,000)
-```
+### 8.1 エンドレスモード（リアルタイム加算）
+
+Reducer内でセル開放・クリア時に加算。ボーナスはClearedModal演出後にNEXT_LEVELで加算。
+
+- セル開放: +100 × レベル（複数セル分加算）
+- スピードボーナス: 1秒以内に次のセルを開いたとき、1セル分 × コンボ倍率（0.5〜2.0）を追加
+- レベルクリアボーナス: +1,000 × レベル（NEXT_LEVEL時に加算）
+- パーフェクトボーナス: そのレベルでミスなしのとき +1,000 × レベル（同上）
+- ミス: -10,000（下限0）
 
 ### 8.2 タイムアタックモード
-```
-score = 1,000,000 - (time_ms ÷ 10) - (miss_count × 5,000) - (revive_count × 10,000)
-```
+
+スコア概念なし。最終タイム = プレイ時間 + 復活ペナルティ（1回あたり30秒）。ランキングはタイム昇順。
 
 ---
 
@@ -341,9 +345,15 @@ interface GameState {
   isGameOver: boolean;
   isCleared: boolean;
   elapsedMs: number;
+  score: number;                    // Endless用リアルタイムスコア
+  penaltyMs: number;                // TA用累積ペナルティ
+  lastScoreChange: number | null;
+  lastRevealMs: number | null;      // スピードボーナス用
+  speedCombo: number;
+  levelMisses: number;              // パーフェクトボーナス判定用
 }
 ```
 
 ---
 
-*最終更新: 2026-02-08*
+*最終更新: 2026-02-15*

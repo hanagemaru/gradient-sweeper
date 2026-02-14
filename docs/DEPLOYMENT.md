@@ -68,28 +68,13 @@ git push origin main
 
 ### 2. テーブルの作成
 
-SQL Editorで以下を実行：
+**現在のスキーマとマイグレーション手順は [DATABASE_MIGRATION.md](./DATABASE_MIGRATION.md) を参照してください。**  
+以下は最小構成の参考用です。本番では `player_name`, `score`, `revive_count`, `penalty_ms` および `time_ms` のNULL許可など、DATABASE_MIGRATION に従って適用してください。
 
 ```sql
-CREATE TABLE scores (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mode TEXT NOT NULL CHECK (mode IN ('endless', 'ta')),
-  difficulty TEXT CHECK (difficulty IN ('easy', 'mid', 'hard')),
-  time_ms BIGINT NOT NULL,
-  endless_level INT,
-  miss_count INT NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Endless用インデックス
-CREATE INDEX idx_scores_endless 
-ON scores (endless_level DESC, time_ms ASC) 
-WHERE mode = 'endless';
-
--- Time Attack用インデックス
-CREATE INDEX idx_scores_ta 
-ON scores (difficulty, time_ms ASC) 
-WHERE mode = 'ta';
+-- 参考: 現在のスキーマ概要（詳細は DATABASE_MIGRATION.md）
+-- scores テーブル: id, mode, difficulty, time_ms, penalty_ms, endless_level, miss_count, revive_count, player_name, score, created_at
+-- インデックス: Endlessは score DESC、TAは score ASC（score に最終タイムmsを格納）
 ```
 
 ### 3. Row Level Security (RLS) の設定
