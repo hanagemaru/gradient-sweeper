@@ -47,6 +47,7 @@ gradient-sweeper/
 ├── docs/                           # ドキュメント
 │   ├── SPEC.md                     # 仕様書
 │   ├── PROGRESS.md                 # 進捗管理
+│   ├── DEPLOYMENT.md               # デプロイ・DB設定ガイド
 │   ├── USER-GUIDE.md               # ユーザー向けガイド
 │   └── technical/                  # 技術ドキュメント
 │       ├── ARCHITECTURE.md         # このファイル
@@ -55,6 +56,7 @@ gradient-sweeper/
 │
 ├── src/
 │   ├── app/                        # Next.js App Router
+│   │   ├── globals.css             # グローバルCSS・CSS変数
 │   │   ├── layout.tsx              # ルートレイアウト
 │   │   ├── page.tsx                # Home (/)
 │   │   ├── ta/
@@ -74,30 +76,40 @@ gradient-sweeper/
 │   ├── components/
 │   │   ├── ui/                     # 汎用UIコンポーネント
 │   │   │   ├── Button.tsx
-│   │   │   └── Modal.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   └── LanguageToggle.tsx  # 言語切替ボタン
 │   │   ├── game/                   # ゲーム関連コンポーネント
 │   │   │   ├── Board.tsx           # 盤面
 │   │   │   ├── Cell.tsx            # セル
 │   │   │   ├── Timer.tsx           # タイマー表示
 │   │   │   ├── Lives.tsx           # 残機表示
-│   │   │   └── PauseOverlay.tsx    # ポーズオーバーレイ
+│   │   │   ├── PauseOverlay.tsx    # ポーズオーバーレイ
+│   │   │   ├── BombCounter.tsx     # 爆弾カウンター
+│   │   │   ├── ClearedModal.tsx    # クリア演出モーダル
+│   │   │   ├── GameOverModal.tsx   # ゲームオーバーモーダル
+│   │   │   ├── MilestoneEffect.tsx # マイルストーンエフェクト
+│   │   │   ├── ScoreDisplay.tsx    # スコア表示
+│   │   │   └── ScorePopup.tsx      # スコアポップアップ
 │   │   └── Icon.tsx                # アイコンコンポーネント
 │   │
 │   ├── hooks/
 │   │   ├── useGame.ts              # ゲーム状態管理
 │   │   ├── useTimer.ts             # タイマー
 │   │   ├── useSwipe.ts             # スワイプ検出
-│   │   └── useI18n.ts              # 多言語
+│   │   └── useScorePopup.ts        # スコアポップアップ制御
 │   │
 │   ├── lib/
 │   │   ├── game-logic.ts           # ゲームロジック
 │   │   ├── supabase.ts             # Supabaseクライアント
-│   │   └── rewarded-provider.ts    # 広告プロバイダ
+│   │   ├── rewarded-provider.ts    # 広告プロバイダ
+│   │   └── score.ts                # スコアユーティリティ
 │   │
 │   ├── i18n/
 │   │   ├── index.ts                # 多言語エントリ
 │   │   ├── ja.ts                   # 日本語
-│   │   └── en.ts                   # 英語
+│   │   ├── en.ts                   # 英語
+│   │   ├── LanguageContext.tsx      # 言語コンテキスト
+│   │   └── useI18n.ts              # 多言語フック
 │   │
 │   └── types/
 │       └── game.ts                 # 型定義
@@ -108,8 +120,8 @@ gradient-sweeper/
 │
 ├── .env.local                      # 環境変数（ローカル）
 ├── netlify.toml                    # Netlify設定
-├── next.config.js                  # Next.js設定
-├── tailwind.config.js              # Tailwind設定
+├── next.config.ts                  # Next.js設定
+├── tailwind.config.ts              # Tailwind設定
 ├── tsconfig.json                   # TypeScript設定
 └── package.json
 ```
@@ -191,4 +203,4 @@ gradient-sweeper/
 
 ---
 
-*最終更新: 2026-02-02*
+*最終更新: 2026-02-15*

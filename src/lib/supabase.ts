@@ -22,8 +22,12 @@ export interface ScoreRow {
   id: string;
   mode: "endless" | "ta";
   difficulty: "easy" | "mid" | "hard" | null;
-  time_ms: number;
+  time_ms: number | null;
+  penalty_ms: number | null;
   endless_level: number | null;
   miss_count: number;
+  revive_count: number;
+  player_name: string | null;
+  score: number;
   created_at: string;
 }

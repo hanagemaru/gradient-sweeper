@@ -8,7 +8,7 @@
 |------|-----|
 | アプリ名 | Gradient Sweeper |
 | アプリID | gradient-sweeper |
-| アプリURL | https://game.hanage.app |
+| アプリURL | https://sweeper.hanage.app |
 | ハブサイト | https://www.hanage.app |
 
 ## 1. ゴールと前提
@@ -24,8 +24,8 @@
 - App Router
 
 ### 2.2 ホスティング
-- Netlify
-- サブドメイン運用: game.hanage.app
+- Netlify（詳細は [DEPLOYMENT.md](./DEPLOYMENT.md) 参照）
+- サブドメイン運用: sweeper.hanage.app
 
 ### 2.3 ランキングDB
 - Supabase（PostgreSQL）
@@ -264,25 +264,7 @@ function getCellColor(r: number, b: number): [number, number, number] {
 
 ### データモデル（Supabase）
 
-```sql
-CREATE TABLE scores (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mode TEXT NOT NULL CHECK (mode IN ('endless', 'ta')),
-  difficulty TEXT CHECK (difficulty IN ('easy', 'mid', 'hard')),
-  time_ms BIGINT NOT NULL,
-  endless_level INT,
-  miss_count INT NOT NULL DEFAULT 0,
-  revive_count INT NOT NULL DEFAULT 0,
-  player_name TEXT CHECK (length(player_name) <= 50),
-  score INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_scores_endless_score ON scores (score DESC) 
-  WHERE mode = 'endless';
-CREATE INDEX idx_scores_ta_score ON scores (difficulty, score DESC) 
-  WHERE mode = 'ta';
-```
+DBスキーマの詳細・マイグレーション手順は [DEPLOYMENT.md](./DEPLOYMENT.md#dbスキーママイグレーション) を参照。
 
 ### API
 
@@ -313,23 +295,9 @@ interface RewardedProvider {
 - AppLixir
 - AdPlayer.Pro
 
-## 14. 環境変数
+## 14. 環境変数・デプロイ
 
-| 変数名 | 用途 | スコープ |
-|--------|------|----------|
-| NEXT_PUBLIC_SUPABASE_URL | Supabase URL | クライアント可 |
-| SUPABASE_SERVICE_ROLE_KEY | Supabase認証キー | サーバーのみ |
-
-## 15. デプロイ
-
-### Netlify
-- GitHub連携 → build → deploy
-- 独自ドメイン: game.hanage.app（CNAME）
-
-### DNS設定（お名前.com）
-- game.hanage.app → Netlifyサイト
-- www.hanage.app → ハブ用Netlifyサイト
-- hanage.app → www.hanage.app にリダイレクト
+環境変数、デプロイ手順、DNS設定の詳細は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照。
 
 ---
 

@@ -88,7 +88,7 @@ import { createClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  
+
   // バリデーション
   if (!isValidScore(body)) {
     return NextResponse.json(
@@ -96,31 +96,51 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  
+
   // レート制限チェック
-  const ip = request.headers.get('x-forwarded-for') || 'unknown';
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
   if (isRateLimited(ip)) {
     return NextResponse.json(
       { success: false, error: 'Rate limited' },
       { status: 429 }
     );
   }
-  
+
+  // スコア計算
+  // Endless: クライアントから受け取った score をそのまま使用
+  // TA: 最終タイム = time_ms + penalty_ms をスコアとして保存
+  let dbScore: number;
+  if (body.mode === 'endless') {
+    dbScore = body.score!;
+  } else {
+    dbScore = (body.time_ms || 0) + (body.penalty_ms || 0);
+  }
+
   // DB登録
   const supabase = createClient();
   const { data, error } = await supabase
     .from('scores')
-    .insert(body)
+    .insert({
+      mode: body.mode,
+      difficulty: body.mode === 'ta' ? body.difficulty : null,
+      time_ms: body.mode === 'ta' ? body.time_ms : null,
+      penalty_ms: body.penalty_ms || null,
+      endless_level: body.mode === 'endless' ? body.endless_level : null,
+      miss_count: body.miss_count,
+      revive_count: body.revive_count,
+      player_name: body.player_name || null,
+      score: dbScore,
+    })
     .select('id')
     .single();
-  
+
   if (error) {
     return NextResponse.json(
       { success: false, error: 'Database error' },
       { status: 500 }
     );
   }
-  
+
   return NextResponse.json(
     { success: true, id: data.id },
     { status: 201 }
@@ -181,10 +201,10 @@ interface ErrorResponse {
 
 ### ソート順
 
-| モード | ソート |
-|--------|--------|
-| Endless | score DESC |
-| Time Attack | score DESC |
+| モード | ソート | 備考 |
+|--------|--------|------|
+| Endless | score DESC | 高スコアが上位 |
+| Time Attack | score ASC | scoreに最終タイム(ms)を格納。短タイムが上位 |
 
 ### 実装例
 
@@ -214,36 +234,37 @@ export async function GET(request: NextRequest) {
   }
   
   const supabase = createClient();
-  
+
+  // Endless: スコア降順（高スコアが上位）
+  // TA: スコア昇順（短タイムが上位。scoreには最終タイム(ms)が格納されている）
+  const ascending = mode === 'ta';
+
   let query = supabase
     .from('scores')
-    .select('time_ms, endless_level, miss_count, created_at')
+    .select('player_name, score, time_ms, penalty_ms, endless_level, miss_count, revive_count, created_at')
     .eq('mode', mode)
+    .order('score', { ascending })
     .limit(100);
-  
-  if (mode === 'endless') {
-    query = query.order('endless_level', { ascending: false })
-                 .order('time_ms', { ascending: true });
-  } else {
-    query = query.eq('difficulty', difficulty)
-                 .order('time_ms', { ascending: true });
+
+  if (mode === 'ta') {
+    query = query.eq('difficulty', difficulty);
   }
-  
+
   const { data, error } = await query;
-  
+
   if (error) {
     return NextResponse.json(
       { success: false, error: 'Database error' },
       { status: 500 }
     );
   }
-  
+
   // rankを付与
-  const rankedData = data.map((entry, index) => ({
+  const rankedData = (data || []).map((entry, index) => ({
     rank: index + 1,
     ...entry,
   }));
-  
+
   return NextResponse.json({ success: true, data: rankedData });
 }
 ```
