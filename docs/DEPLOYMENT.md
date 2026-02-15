@@ -58,29 +58,21 @@ Gitの `main` ブランチにpushすると、Netlifyが自動で再デプロイ�
 
 ### 1. Supabaseプロジェクトの作成
 
-1. https://supabase.com/ でプロジェクトを作成
-2. Database Password を設定
+1. https://supabase.com/ でアカウント作成・ログイン
+2. Organization を作成（Type: Personal、Plan: Free）
+3. **New project** でプロジェクトを作成
+   - Project name: 任意（例: `gradient-sweeper`）
+   - Database password: Generate a passwordで自動生成しメモ
+   - Region: **Northeast Asia (Tokyo)** 推奨
+   - Enable automatic RLS: **OFF**（コードがRLS未対応のため）
+4. プロジェクト作成完了後、Settings → **API Keys** を開く
+5. **Secret keys** の `sb_secret_...` をコピー（`SUPABASE_SERVICE_ROLE_KEY` に使用）
 
 ### 2. テーブルの作成
 
-下記「DBスキーマ・マイグレーション」セクションのSQLを実行してください。
+SQL Editor で下記「DBスキーマ・マイグレーション」セクションのSQLを実行。
 
-### 3. Row Level Security (RLS) の設定
-
-```sql
--- RLSを有効化
-ALTER TABLE scores ENABLE ROW LEVEL SECURITY;
-
--- 全員が読み取り可能
-CREATE POLICY "Allow public read access"
-ON scores FOR SELECT
-USING (true);
-
--- 全員が挿入可能（API経由のみ）
-CREATE POLICY "Allow public insert access"
-ON scores FOR INSERT
-WITH CHECK (true);
-```
+> **注意**: RLS（Row Level Security）は現在未設定。サービスロールキーを使用しているため動作に問題はないが、将来的に設定を検討。
 
 ---
 
@@ -208,7 +200,7 @@ Netlify Site settings → **Environment variables** に以下を追加：
 | キー | 値 | 説明 |
 |------|-----|------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` | SupabaseのプロジェクトURL |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbG...` | Service Role Key（秘密鍵） |
+| `SUPABASE_SERVICE_ROLE_KEY` | `sb_secret_...` | Secret Key（秘密鍵・新形式） |
 
 **重要**: `SUPABASE_SERVICE_ROLE_KEY` はサーバーサイドでのみ使用され、クライアントには送信されません。
 
@@ -253,7 +245,16 @@ Netlifyが自動でLet's EncryptのSSL証明書を発行します（数分～数
 
 ## トラブルシューティング
 
-### ビルドが失敗する
+### ビルドが失敗する（Secrets scanning）
+
+Netlifyのシークレットスキャナーが環境変数を検知してビルドを止めることがある。
+`netlify.toml` の `[build.environment]` に以下を追加済み：
+
+```toml
+SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY"
+```
+
+### ビルドが失敗する（その他）
 
 1. Netlifyの **Deploy logs** を確認
 2. エラーメッセージの最後の数行をチェック
@@ -289,7 +290,7 @@ ALTER TABLE scores ADD CONSTRAINT player_name_length CHECK (length(player_name) 
 
 ## 次のステップ
 
-- [ ] ランキングDB本番化（Supabase設定）
+- [x] ランキングDB本番化（Supabase設定）
 - [ ] UI本番作り込み（アセット適用）
 - [ ] 広告適用
 - [ ] ハブサイト（hanage.app）の構築
@@ -297,4 +298,4 @@ ALTER TABLE scores ADD CONSTRAINT player_name_length CHECK (length(player_name) 
 
 ---
 
-*最終更新: 2026-02-15*
+*最終更新: 2026-02-16*
