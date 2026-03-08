@@ -282,7 +282,7 @@ function GameContent() {
       </div>
 
       {/* 盤面 */}
-      <div className="relative">
+      <div className="relative z-0">
         <Board
           board={state.board}
           onReveal={handleRevealCell}

@@ -9,7 +9,7 @@
   /* ゲーム用CSS変数 */
   --cell-size: 36px;
   --icon-size: 24px;
-  --gap: 2px;
+  --gap: 0px;
   --radius: 4px;
 }
 

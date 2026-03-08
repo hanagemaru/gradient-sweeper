@@ -46,7 +46,7 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
       // CSS変数から値を取得
       const style = getComputedStyle(boardRef.current);
       const cellSize = parseFloat(style.getPropertyValue("--cell-size")) || 36;
-      const gap = parseFloat(style.getPropertyValue("--gap")) || 2;
+      const gap = parseFloat(style.getPropertyValue("--gap") || "0");
 
       const cellWithGap = cellSize + gap;
 
@@ -108,7 +108,7 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
   return (
     <div
       ref={boardRef}
-      className="game-board inline-grid touch-none"
+      className="game-board inline-grid touch-none isolate"
       style={{
         gridTemplateColumns: `repeat(${GRID_SIZE}, var(--cell-size))`,
         gap: "var(--gap)",
@@ -119,7 +119,7 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
     >
       {board.cells.map((row, rowIndex) =>
         row.map((cell, colIndex) => (
-          <Cell key={`${rowIndex}-${colIndex}`} cell={cell} showBomb={showAllBombs && cell.hasBomb} masked={maskCells} />
+          <Cell key={`${rowIndex}-${colIndex}`} cell={cell} row={rowIndex} col={colIndex} showBomb={showAllBombs && cell.hasBomb} masked={maskCells} />
         ))
       )}
     </div>
