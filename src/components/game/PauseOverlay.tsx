@@ -11,7 +11,7 @@ interface PauseOverlayProps {
   onQuit: () => void;
 }
 
-export function PauseOverlay({ mode, onResume, onQuit }: PauseOverlayProps) {
+export function PauseOverlay({ mode: _mode, onResume, onQuit }: PauseOverlayProps) {
   const { t } = useI18n();
 
   return (

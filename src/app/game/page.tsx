@@ -3,15 +3,12 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useGame } from "@/hooks/useGame";
-import { useTimer } from "@/hooks/useTimer";
+import { formatTime, useTimer } from "@/hooks/useTimer";
 import { useScorePopup } from "@/hooks/useScorePopup";
 import { useI18n } from "@/i18n/useI18n";
 import { Board } from "@/components/game/Board";
-import { Timer } from "@/components/game/Timer";
 import { ScoreDisplay } from "@/components/game/ScoreDisplay";
 import { ScorePopup } from "@/components/game/ScorePopup";
-import { Lives } from "@/components/game/Lives";
-import { BombCounter } from "@/components/game/BombCounter";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverModal } from "@/components/game/GameOverModal";
 import { ClearedModal } from "@/components/game/ClearedModal";
@@ -21,6 +18,7 @@ import { MilestoneEffect } from "@/components/game/MilestoneEffect";
 import { GameMode, Difficulty, MAX_REVIVES_TA, GRID_SIZE, LEVEL_CLEAR_BONUS, PERFECT_BONUS_MULTIPLIER } from "@/types/game";
 import { showRewardedAd } from "@/lib/rewarded-provider";
 import { countFlags } from "@/lib/game-logic";
+import styles from "./game.module.css";
 
 /** スピードコンボ数に応じたラベルを返す */
 function getComboLabel(combo: number): string {
@@ -240,96 +238,108 @@ function GameContent() {
     ? LEVEL_CLEAR_BONUS * state.level * PERFECT_BONUS_MULTIPLIER
     : undefined;
 
+  const displayedScore = state.isCleared && answerDone
+    ? state.score + (bonusScore ?? 0) + (perfectBonus ?? 0)
+    : state.score;
+  const remainingBombs = state.bombCount - countFlags(state.board);
+
   return (
-    <main className="flex flex-col items-center min-h-screen p-4">
-      {/* ヘッダー */}
-      <div className="w-full max-w-md flex items-center justify-between mb-4">
-        {/* 左側: Endless→スコア / TA→タイマー */}
-        {mode === "endless" ? (
-          <ScoreDisplay
-            score={
-              state.isCleared && answerDone
-                ? state.score + (bonusScore ?? 0) + (perfectBonus ?? 0)
-                : state.score
-            }
-          />
-        ) : (
-          <div className="relative">
-            <Timer elapsedMs={timer.elapsedMs + state.penaltyMs} />
-            {showPenaltyPopup && (
-              <div
-                key={penaltyPopupKey}
-                className="absolute score-float-up text-red-400 font-bold text-lg whitespace-nowrap drop-shadow-lg"
-                style={{ left: "50%", top: "-4px" }}
-              >
-                +30s
-              </div>
-            )}
+    <main className={styles.page}>
+      <span className={`${styles.crystalCluster} ${styles.crystalLeft}`} aria-hidden="true" />
+      <span className={`${styles.crystalCluster} ${styles.crystalRight}`} aria-hidden="true" />
+
+      <section className={styles.gameShell}>
+        <header className={styles.hud}>
+          <div className={styles.hudTitle}>
+            <span className={styles.snowflake} aria-hidden="true">❄</span>
+            <span>
+              <strong>GRADIENT GLACIER</strong>
+              <small>{mode === "endless" ? "ENDLESS EXPEDITION" : "TIME ATTACK"}</small>
+            </span>
           </div>
-        )}
-        
-        <div className="flex items-center gap-4">
-          <BombCounter remaining={state.bombCount - countFlags(state.board)} />
-          
-          {mode === "endless" && <Lives lives={state.lives} />}
-          
-          {mode === "endless" && (
-            <div className="text-lg font-semibold">
-              {t("game.level")}: {state.level}
+
+          <div className={styles.statusGrid}>
+            <div className={`${styles.statusCard} ${styles.primaryCard}`}>
+              <span>{mode === "endless" ? "SCORE" : "TIME"}</span>
+              {mode === "endless" ? (
+                <ScoreDisplay
+                  score={displayedScore}
+                  renderScore={(value, colorClass) => (
+                    <strong className={colorClass}>{value.toLocaleString()}</strong>
+                  )}
+                />
+              ) : (
+                <strong>{formatTime(timer.elapsedMs + state.penaltyMs)}</strong>
+              )}
+              {mode === "ta" && showPenaltyPopup && (
+                <em key={penaltyPopupKey} className="score-float-up">+30s</em>
+              )}
             </div>
-          )}
+
+            <div className={`${styles.statusCard} ${styles.redCard}`}>
+              <span>BOMBS</span>
+              <strong>{remainingBombs}</strong>
+            </div>
+
+            <div className={`${styles.statusCard} ${styles.blueCard}`}>
+              <span>{mode === "endless" ? "LIVES" : "REVIVES"}</span>
+              <strong>{mode === "endless" ? state.lives : `${state.reviveCount}/${MAX_REVIVES_TA}`}</strong>
+            </div>
+
+            <div className={`${styles.statusCard} ${styles.levelCard}`}>
+              <span>{mode === "endless" ? "LEVEL" : "MODE"}</span>
+              <strong>{mode === "endless" ? state.level : "TA"}</strong>
+            </div>
+          </div>
+        </header>
+
+        <div className={styles.boardFrame}>
+          <div className={styles.boardArea}>
+            <Board
+              board={state.board}
+              onReveal={handleRevealCell}
+              onFlag={toggleFlag}
+              disabled={state.isPaused || state.isGameOver || state.isCleared}
+              showAllBombs={state.isCleared && !answerDone}
+              maskCells={state.isPaused && mode === "ta"}
+            />
+
+            {mode === "endless" && <ScorePopup popups={popups} />}
+
+            {state.isPaused && <PauseOverlay mode={mode} onResume={resume} onQuit={handleQuitFromPause} />}
+          </div>
         </div>
-      </div>
 
-      {/* 盤面 */}
-      <div className="relative z-0">
-        <Board
-          board={state.board}
-          onReveal={handleRevealCell}
-          onFlag={toggleFlag}
-          disabled={state.isPaused || state.isGameOver || state.isCleared}
-          showAllBombs={state.isCleared && !answerDone}
-          maskCells={state.isPaused && mode === "ta"}
+        <div className={styles.controls}>
+          <Button
+            onClick={pause}
+            variant="ghost"
+            disabled={state.isGameOver || state.isCleared}
+          >
+            <Icon name={mode === "endless" ? "menu" : "pause"} />
+            {mode === "endless" ? t("game.menu") : t("game.pause")}
+          </Button>
+        </div>
+
+        <GameOverModal
+          isOpen={showGameOverModal}
+          mode={mode}
+          reviveCount={state.reviveCount}
+          onRevive={handleRevive}
+          onGiveUp={handleGiveUp}
+          onGoHome={handleGoHome}
         />
-        
-        {/* スコアポップアップ（Endlessのみ） */}
-        {mode === "endless" && <ScorePopup popups={popups} />}
 
-        {state.isPaused && <PauseOverlay mode={mode} onResume={resume} onQuit={handleQuitFromPause} />}
-      </div>
+        <ClearedModal
+          isOpen={state.isCleared && answerDone && mode === "endless"}
+          onNext={handleNextLevel}
+          currentScore={state.score}
+          bonusScore={bonusScore}
+          perfectBonus={perfectBonus}
+        />
 
-      {/* ポーズ / メニューボタン */}
-      <div className="mt-6">
-        <Button
-          onClick={pause}
-          variant="ghost"
-          disabled={state.isGameOver || state.isCleared}
-        >
-          <Icon name={mode === "endless" ? "menu" : "pause"} />
-          {mode === "endless" ? t("game.menu") : t("game.pause")}
-        </Button>
-      </div>
-
-      {/* モーダル */}
-      <GameOverModal
-        isOpen={showGameOverModal}
-        mode={mode}
-        reviveCount={state.reviveCount}
-        onRevive={handleRevive}
-        onGiveUp={handleGiveUp}
-        onGoHome={handleGoHome}
-      />
-
-      <ClearedModal
-        isOpen={state.isCleared && answerDone && mode === "endless"}
-        onNext={handleNextLevel}
-        currentScore={state.score}
-        bonusScore={bonusScore}
-        perfectBonus={perfectBonus}
-      />
-
-      {/* マイルストーン演出（Endlessのみ） */}
-      {mode === "endless" && <MilestoneEffect score={state.score} />}
+        {mode === "endless" && <MilestoneEffect score={state.score} />}
+      </section>
     </main>
   );
 }

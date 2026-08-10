@@ -1,0 +1,104 @@
+.cell {
+  position: relative;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  box-sizing: border-box;
+  overflow: visible;
+  image-rendering: pixelated;
+}
+
+.opened {
+  z-index: 1;
+}
+
+.covered {
+  z-index: 3;
+}
+
+.iceTile,
+.snowTile,
+.snowUnderlay,
+.flagOverlay {
+  position: absolute;
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+}
+
+.iceTile {
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+}
+
+.snowUnderlay {
+  z-index: 1;
+  top: -2px;
+  left: 0;
+  width: 36px;
+  height: 38px;
+}
+
+.snowTile {
+  z-index: 2;
+  top: -2px;
+  left: 0;
+  width: 36px;
+  height: 38px;
+}
+
+.snowCastShadow {
+  position: absolute;
+  z-index: 0;
+  top: 36px;
+  left: 2px;
+  display: block;
+  width: 32px;
+  height: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(54, 63, 78, 0.52) 0 1px,
+    rgba(54, 63, 78, 0.3) 1px 2px,
+    rgba(54, 63, 78, 0.16) 2px 3px
+  );
+  clip-path: polygon(2px 0, 30px 0, 28px 3px, 4px 3px);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.flagOverlay {
+  z-index: 4;
+  top: 5px;
+  left: 12px;
+  width: 18px;
+  height: 22px;
+}
+
+.bombOverlay {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(2px 2px 0 rgba(6, 20, 45, 0.55));
+  pointer-events: none;
+}
+
+.masked {
+  z-index: 4;
+}
+
+.maskSurface {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: #173b65;
+  box-shadow:
+    inset 2px 2px 0 #3f719b,
+    inset -2px -2px 0 #071a36;
+}

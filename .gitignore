@@ -42,3 +42,20 @@ next-env.d.ts
 # IDE
 .idea
 .vscode
+
+# Local Netlify folder
+.netlify
+
+# Local agent settings and scratch files
+/.claude/settings.local.json
+/CLAUDE.local.md
+/.cursor/
+/.cursorrules
+/.tmp/
+
+# Superseded local design experiments (the production set is tiles-v5)
+/public/assets/cells/
+/public/assets/frostbound/tiles-v1/
+/public/assets/frostbound/tiles-v2/
+/public/assets/frostbound/tiles-v3/
+/public/assets/frostbound/tiles-v4/

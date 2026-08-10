@@ -1,8 +1,9 @@
 "use client";
 
-import { Cell as CellType, GRID_SIZE } from "@/types/game";
-import { getCellColor, rgbToString } from "@/lib/game-logic";
+import Image from "next/image";
 import { Icon } from "@/components/Icon";
+import { Cell as CellType, GRID_SIZE } from "@/types/game";
+import styles from "./Cell.module.css";
 
 interface CellProps {
   cell: CellType;
@@ -12,191 +13,124 @@ interface CellProps {
   masked?: boolean;
 }
 
-// バリアント数（画像ファイル数に合わせて変更）
-// 草: /assets/cells/grass-1.png 〜 grass-3.png
-//     /assets/cells/grass-flag-1.png 〜 grass-flag-3.png（対応するフラグ付き）
-// 土: /assets/cells/soil-1.png 〜 soil-3.png
-const GRASS_VARIANTS = 3;
-const SOIL_VARIANTS = 3;
+type IceTone = "clear" | "red" | "blue" | "mix";
 
-// 作成済みの土＋クリスタル画像の組み合わせ（r-b）
-const SOIL_CRYSTAL_AVAILABLE = new Set(["1-0", "0-1", "1-1"]);
+const ASSET_BASE = "/assets/frostbound/tiles-v5";
 
-function getSoilCrystalSrc(r: number, b: number): string | null {
-  if (SOIL_CRYSTAL_AVAILABLE.has(`${r}-${b}`)) {
-    return `/assets/cells/soil-r${r}-b${b}.png`;
+function getSnowVariant(row: number, col: number): 1 | 2 | 3 {
+  return (((row * 7 + col * 3 + row * col) % 3) + 1) as 1 | 2 | 3;
+}
+
+function getIceAsset(
+  adjacentRed: number,
+  adjacentBlue: number,
+  row: number,
+  col: number,
+  bombType?: "red" | "blue",
+): string {
+  if (bombType) {
+    return `${ASSET_BASE}/ice-${bombType}-4.png`;
   }
-  return null;
+
+  if (adjacentRed === 0 && adjacentBlue === 0) {
+    const variant = ((row * 5 + col * 3) % 2) + 1;
+    return `${ASSET_BASE}/ice-clear-${variant}.png`;
+  }
+
+  let tone: IceTone;
+  if (adjacentBlue === 0 || adjacentRed >= adjacentBlue * 2) {
+    tone = "red";
+  } else if (adjacentRed === 0 || adjacentBlue >= adjacentRed * 2) {
+    tone = "blue";
+  } else {
+    tone = "mix";
+  }
+
+  const level = Math.max(1, Math.min(4, adjacentRed + adjacentBlue));
+  return `${ASSET_BASE}/ice-${tone}-${level}.png`;
 }
-
-// セル位置に基づいて毎回同じバリアントを返す決定論的な選択
-// hidden と flagged で同じ関数を使うことで、フラグを立てても草模様が変わらない
-function getGrassVariant(row: number, col: number): number {
-  return ((row * 7 + col * 3 + row * col) % GRASS_VARIANTS) + 1;
-}
-
-function getSoilVariant(row: number, col: number): number {
-  return ((row * 7 + col * 3 + row * col) % SOIL_VARIANTS) + 1;
-}
-
-// grass は 36×40px 表示（上4pxがセル上辺より飛び出す）
-const GRASS_W = 36;
-const GRASS_H = 40;
-
-// grass-flag は 40×44px 表示（20×22px の実ファイルを width/height で2倍指定）
-// transform: scale(2) ではなく明示的サイズにすることで image-rendering: pixelated が確実に効く
-const GRASS_FLAG_W = 40; // 20 × 2
-const GRASS_FLAG_H = 44; // 22 × 2
 
 export function Cell({ cell, row, col, showBomb = false, masked = false }: CellProps) {
   const { state, adjacentRed, adjacentBlue, hasBomb, bombType } = cell;
+  const bombVisible = !masked && hasBomb && (showBomb || state === "exploded" || state === "revealed");
+  const covered = !masked && !bombVisible && (state === "hidden" || state === "flagged");
+  const snowVariant = getSnowVariant(row, col);
+  const iceAsset = getIceAsset(
+    adjacentRed,
+    adjacentBlue,
+    row,
+    col,
+    bombVisible && bombType ? bombType : undefined,
+  );
 
-  // スタイル計算
-  const getCellStyle = (): React.CSSProperties => {
-    // マスク時：全セルを閉じた状態で表示
-    if (masked) {
-      return { backgroundColor: "#374151" };
-    }
-
-    // hidden / flagged：草画像が背景を担うので色なし
-    if (state === "hidden" || state === "flagged") {
-      return {};
-    }
-
-    // 答え合わせ中：爆弾セルをハイライト
-    if (showBomb && hasBomb) {
-      return { backgroundColor: bombType === "red" ? "#fca5a5" : "#93c5fd" };
-    }
-
-    if (state === "exploded") {
-      return { backgroundColor: "#ef4444" };
-    }
-
-    // revealed（r=0, b=0）：soil画像が背景を担うので色なし
-    if (adjacentRed === 0 && adjacentBlue === 0) {
-      return {};
-    }
-
-    // revealed（色セル）：クリスタル画像がある場合は画像が背景を担う
-    if (getSoilCrystalSrc(adjacentRed, adjacentBlue)) {
-      return {};
-    }
-    const color = getCellColor(adjacentRed, adjacentBlue);
-    return { backgroundColor: rgbToString(color) };
-  };
-
-  // アニメーションクラス
-  const getAnimationClass = (): string => {
-    if (!masked && state === "exploded") return "bomb-explode";
-    return "";
-  };
-
-  const renderContent = () => {
-    // マスク時：何も表示しない
-    if (masked) return null;
-
-    // 答え合わせ中：爆弾を表示
-    if (showBomb && hasBomb) {
-      return <Icon name={bombType === "red" ? "bomb-red" : "bomb-blue"} size="lg" />;
-    }
-
-    switch (state) {
-      case "hidden": {
-        const grassVariant = getGrassVariant(row, col);
-        return (
-          <img
-            src={`/assets/cells/grass-${grassVariant}.png`}
-            alt=""
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              width: GRASS_W,
-              height: GRASS_H,
-              imageRendering: "pixelated",
-            }}
-          />
-        );
-      }
-      case "flagged": {
-        const grassVariant = getGrassVariant(row, col);
-        return (
-          <img
-            src={`/assets/cells/grass-flag-${grassVariant}.png`}
-            alt=""
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              width: GRASS_FLAG_W,
-              height: GRASS_FLAG_H,
-              maxWidth: "none", // Tailwind preflight の max-width: 100% を上書き
-              imageRendering: "pixelated",
-            }}
-          />
-        );
-      }
-      case "exploded":
-        return <Icon name={bombType === "red" ? "bomb-red" : "bomb-blue"} size="lg" />;
-      case "revealed":
-        if (hasBomb) {
-          return <Icon name={bombType === "red" ? "bomb-red" : "bomb-blue"} size="lg" />;
-        }
-        if (adjacentRed === 0 && adjacentBlue === 0) {
-          const soilVariant = getSoilVariant(row, col);
-          return (
-            <img
-              src={`/assets/cells/soil-${soilVariant}.png`}
-              alt=""
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                width: GRASS_W,
-                height: GRASS_W,
-                imageRendering: "pixelated",
-              }}
-            />
-          );
-        }
-        // クリスタル画像がある場合は表示、なければ色背景のみ（フォールバック）
-        const crystalSrc = getSoilCrystalSrc(adjacentRed, adjacentBlue);
-        if (crystalSrc) {
-          return (
-            <img
-              src={crystalSrc}
-              alt=""
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                width: GRASS_W,
-                height: GRASS_W,
-                imageRendering: "pixelated",
-              }}
-            />
-          );
-        }
-        return null;
-      default:
-        return null;
-    }
-  };
+  const classNames = [
+    styles.cell,
+    covered ? styles.covered : styles.opened,
+    masked ? styles.masked : "",
+    state === "exploded" ? "bomb-explode" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
-      className={`flex items-center justify-center transition-colors ${getAnimationClass()}`}
-      style={{
-        position: "relative",
-        width: "var(--cell-size)",
-        height: "var(--cell-size)",
-        borderRadius: "var(--radius)",
-        overflow: "visible",
-        zIndex: row * GRID_SIZE + (GRID_SIZE - col),
-        ...getCellStyle(),
-      }}
+      className={classNames}
+      style={{ zIndex: masked ? 4 : covered ? 3 : 1 }}
+      aria-label={state === "flagged" ? "flagged cell" : undefined}
     >
-      {renderContent()}
+      {masked ? (
+        <span className={styles.maskSurface} aria-hidden="true" />
+      ) : covered ? (
+        <>
+          {row < GRID_SIZE - 1 && <span className={styles.snowCastShadow} aria-hidden="true" />}
+          <Image
+            src={`${ASSET_BASE}/snow-underlay.png`}
+            alt=""
+            width={36}
+            height={38}
+            className={styles.snowUnderlay}
+            draggable={false}
+            unoptimized
+          />
+          <Image
+            src={`${ASSET_BASE}/snow-${snowVariant}.png`}
+            alt=""
+            width={36}
+            height={38}
+            className={styles.snowTile}
+            draggable={false}
+            unoptimized
+          />
+          {state === "flagged" && (
+            <Image
+              src={`${ASSET_BASE}/flag-overlay.png`}
+              alt="flag"
+              width={18}
+              height={22}
+              className={styles.flagOverlay}
+              draggable={false}
+              unoptimized
+            />
+          )}
+        </>
+      ) : (
+        <>
+          <Image
+            src={iceAsset}
+            alt=""
+            width={36}
+            height={36}
+            className={styles.iceTile}
+            draggable={false}
+            unoptimized
+          />
+          {bombVisible && (
+            <span className={styles.bombOverlay}>
+              <Icon name={bombType === "red" ? "bomb-red" : "bomb-blue"} size="lg" />
+            </span>
+          )}
+        </>
+      )}
     </div>
   );
 }

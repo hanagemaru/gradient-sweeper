@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource/vt323/400.css";
 import "./globals.css";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 
