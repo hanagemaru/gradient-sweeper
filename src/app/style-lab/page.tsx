@@ -202,6 +202,9 @@ export default function StyleLabPage() {
             <span><i className={styles.legendMix} />赤青混合</span>
             <span><i className={styles.legendBlue} />青が多い</span>
           </div>
+          <Link href="/style-lab/color-map" className={styles.colorMapLink}>
+            隣接数との対応を全パターン見る →
+          </Link>
         </section>
 
         <Link href="/" className={styles.backLink}>← ホームへ戻る</Link>

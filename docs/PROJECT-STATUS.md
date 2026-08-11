@@ -8,6 +8,9 @@ Last updated: 2026-08-11
   long-running theme branch anymore; start new work from `main` on a fresh `codex/` or `claude/` branch.
 - The approved snow and ice assets are in `public/assets/frostbound/tiles-v5/`.
 - The `/style-lab` page remains available as a visual reference and inspection screen.
+  Its child route `/style-lab/color-map` renders every adjacency-to-tile mapping with the real
+  sprites. It calls the production `getIceAsset()` from `src/lib/tile-assets.ts` directly, so it
+  cannot drift from the game — change the mapping and the page follows.
 - The production game board uses the same `tiles-v5` snow, ice, flag, corner underlay, and cast-shadow layers.
 - The game screen uses the dark-blue pixel HUD and icy background from the approved style direction.
 - The glacier visual language is applied to `/game` only. Home, ranking, and result pages are still
@@ -29,7 +32,8 @@ Last updated: 2026-08-11
   as unverified until tests are added.
 - **The ice colour mapping collapses.** 45 possible (red, blue) adjacency states map to only
   11 distinct tiles; `ice-mix-1` and `ice-mix-3` are never rendered at all. See
-  `docs/technical/COLOR-MAPPING.md` for the full table and the four specific problems.
+  `docs/technical/COLOR-MAPPING.md` for the full table and the four specific problems,
+  or `/style-lab/color-map` to compare the actual sprites.
 - **The game board re-renders 10 times per second while idle.** `useTimer` (`src/hooks/useTimer.ts`)
   ticks every 100 ms and its state lives in the same component as `<Board>`
   (`src/app/game/page.tsx`), so all 81 cells and their `next/image` elements reconcile on every tick.

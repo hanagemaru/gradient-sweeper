@@ -2,7 +2,12 @@
 
 隣接する赤爆弾・青爆弾の数から、どの氷タイル画像が選ばれるかの完全な対応表。
 
-- 導出元: `src/components/game/Cell.tsx` の `getIceAsset()`
+> **実タイル画像付きの検証ページが `/style-lab/color-map` にあります。**
+> 色そのものを見比べたい場合はそちらを使ってください。
+> あのページは `getIceAsset()` を直接呼んで生成しているので、常に実装と一致します。
+
+- 導出元: `src/lib/tile-assets.ts` の `getIceAsset()`
+  （盤面の `src/components/game/Cell.tsx` と検証ページの両方がこれを使う）
 - この表は実装から機械的に展開したもので、手書きではない。
   **`getIceAsset()` を変更したらこの表も必ず再生成すること。**
 - 9x9 盤面では 1 セルの隣接セルは最大 8 なので、有効な組み合わせは `赤 + 青 <= 8` の **45 通り**。
@@ -89,5 +94,13 @@ level = clamp(adjacentRed + adjacentBlue, 1, 4)
 
 ## 再生成の手順
 
-`getIceAsset()` を変更した場合は、実装と同じロジックを移植したスクリプトで
-45通りを総当たりして表を作り直す。手で書き換えないこと。
+`getIceAsset()` を変更した場合:
+
+1. `/style-lab/color-map` は `src/lib/tile-assets.ts` から直接 import しているので**自動で追従する**。
+   何もしなくてよい
+2. このドキュメントの表は手動なので、`getIceAsset()` を総当たりで呼んで作り直す。
+   手で書き換えないこと
+
+未使用アセットの判定は座標依存のバリエーション（`ice-clear-1` / `ice-clear-2`）を取りこぼさないよう、
+隣接数だけでなく盤面の全座標を含めて総当たりする必要がある。
+`src/app/style-lab/color-map/page.tsx` の `collectRenderableAssets()` がその実装。
