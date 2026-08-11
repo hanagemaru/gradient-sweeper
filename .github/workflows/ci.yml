@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "codex/**"
+      - "claude/**"
       - "ui-**"
   pull_request:
 
