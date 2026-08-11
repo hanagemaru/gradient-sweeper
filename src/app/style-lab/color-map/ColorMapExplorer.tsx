@@ -343,9 +343,14 @@ export function ColorMapExplorer({ states, unusedAssets }: Props) {
           </section>
         )}
 
-        <Link href="/style-lab" className={styles.backLink}>
-          ← スタイルラボへ戻る
-        </Link>
+        <div className={styles.links}>
+          <Link href="/style-lab/color-map/proposal" className={styles.proposalLink}>
+            45状態すべてを別の色にした再設計案を見る →
+          </Link>
+          <Link href="/style-lab" className={styles.backLink}>
+            ← スタイルラボへ戻る
+          </Link>
+        </div>
       </div>
     </main>
   );
