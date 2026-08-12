@@ -33,8 +33,20 @@ const F_SIZE = 6;
 /** 同時に存在できる破片の上限。全81セルが一度に開いても収まる数にしてある */
 const MAX_PARTICLES = 260;
 
-/** 重力（px/秒^2）。跳ね上がってから落ちるまでが 0.4〜0.6 秒に収まる強さ */
-const GRAVITY = 620;
+/**
+ * 重力（px/秒^2）。
+ *
+ * 盤面を真上から見ている絵なので、下向きの重力が主役だと世界観に合わない。
+ * 実際、強い重力（620）だと滞空時間の大半が落下になり、全ての破片が下に抜けて消えていた。
+ * ここでは全方向に弾けるのを主役にし、重力は最後にわずかに沈む程度に留める。
+ */
+const GRAVITY = 130;
+
+/**
+ * 空気抵抗（1/秒）。
+ * 弾けた瞬間が最も速く、すぐ減速して止まる。等速で飛び続けるより破片らしく見える。
+ */
+const DRAG = 2.4;
 
 /**
  * 飛び散り方のパターン。開いたセルごとに1つ選ぶ。
@@ -44,13 +56,13 @@ const GRAVITY = 620;
  * 寿命はどのパターンでも 0.4〜0.6 秒の範囲に収めている。
  */
 interface BurstPattern {
-  /** 上向きの初速（px/秒） */
-  jumpMin: number;
-  jumpSpan: number;
-  /** 横方向の初速の広がり（px/秒） */
-  spread: number;
-  /** 左右どちらかに寄せる強さ（px/秒）。0 なら対称に散る */
-  bias: number;
+  /** 初速（px/秒）。向きは全方向から選ぶ */
+  speedMin: number;
+  speedSpan: number;
+  /** 縦方向の伸び。1 で真円、小さいほど横長、大きいほど縦長 */
+  verticalScale: number;
+  /** 下向き成分を抑える度合い（0 なら上下対称、0.6 なら下向きの初速が4割になる） */
+  upward: number;
   /** 発生位置の散らばり（セルの一辺に対する比） */
   scatter: number;
   lifeMin: number;
@@ -58,14 +70,14 @@ interface BurstPattern {
 }
 
 const PATTERNS: readonly BurstPattern[] = [
-  /** 高く跳ね上がる */
-  { jumpMin: 115, jumpSpan: 55, spread: 55, bias: 0, scatter: 0.45, lifeMin: 0.45, lifeSpan: 0.15 },
-  /** 低く横へ大きく広がる */
-  { jumpMin: 55, jumpSpan: 45, spread: 155, bias: 0, scatter: 0.6, lifeMin: 0.4, lifeSpan: 0.15 },
-  /** 片側へ寄って飛ぶ */
-  { jumpMin: 80, jumpSpan: 60, spread: 70, bias: 75, scatter: 0.5, lifeMin: 0.42, lifeSpan: 0.18 },
-  /** 手前で細かく散る */
-  { jumpMin: 45, jumpSpan: 50, spread: 105, bias: 0, scatter: 0.7, lifeMin: 0.4, lifeSpan: 0.12 },
+  /** 全方向へ均等に弾ける */
+  { speedMin: 95, speedSpan: 70, verticalScale: 1, upward: 0.25, scatter: 0.45, lifeMin: 0.45, lifeSpan: 0.15 },
+  /** 横へ長く広がる */
+  { speedMin: 105, speedSpan: 70, verticalScale: 0.5, upward: 0.2, scatter: 0.6, lifeMin: 0.4, lifeSpan: 0.15 },
+  /** 上寄りに噴き上がる */
+  { speedMin: 100, speedSpan: 60, verticalScale: 1.15, upward: 0.6, scatter: 0.5, lifeMin: 0.42, lifeSpan: 0.18 },
+  /** 近くで細かく散る */
+  { speedMin: 55, speedSpan: 45, verticalScale: 1, upward: 0.3, scatter: 0.7, lifeMin: 0.4, lifeSpan: 0.12 },
 ];
 
 /**
@@ -81,10 +93,11 @@ const FADE_ALPHA = 0.55;
 
 /**
  * キャンバスが盤面より外側にはみ出す量（px）。
- * これがないと上端の行から飛んだ破片が盤面の縁で切れる。
+ * 破片は全方向へ飛ぶので、これがないと外周のセルの破片が盤面の縁で切れる。
+ * 盤面の枠（padding 6px + 枠線 5px）とほぼ同じ幅にしてあり、枠の外までは出ない。
  * `TileBurst.module.css` の値と揃えること。
  */
-export const BURST_BLEED = 6;
+export const BURST_BLEED = 12;
 
 /** タブ復帰時に dt が跳ねて破片が吹き飛ぶのを防ぐ上限（秒） */
 const MAX_DELTA = 0.05;
@@ -294,10 +307,11 @@ export function useTileBurst(): TileBurstController {
           currentAlpha = alpha;
         }
 
-        // ピクセルアートなので座標を整数に落として四角の角を立てる
+        // ピクセルアートなので座標を整数に落として四角の角を立てる。
+        // 破片の中心を座標に合わせる（左上基準のままだと右下へ寄って見える）
         const size = data[base + F_SIZE];
-        const x = Math.round(data[base + F_X]);
-        const y = Math.round(data[base + F_Y]);
+        const x = Math.round(data[base + F_X] - size / 2);
+        const y = Math.round(data[base + F_Y] - size / 2);
 
         if (pass === 0) {
           ctx.fillRect(x - 1, y - 1, size + 2, size + 2);
@@ -340,7 +354,12 @@ export function useTileBurst(): TileBurstController {
         }
 
         data[base + F_AGE] = age;
-        data[base + F_VY] += GRAVITY * delta;
+
+        // 空気抵抗で減速させてから重力を足す
+        const damping = Math.max(0, 1 - DRAG * delta);
+        data[base + F_VX] *= damping;
+        data[base + F_VY] = data[base + F_VY] * damping + GRAVITY * delta;
+
         data[base + F_X] += data[base + F_VX] * delta;
         data[base + F_Y] += data[base + F_VY] * delta;
         i += 1;
@@ -379,14 +398,21 @@ export function useTileBurst(): TileBurstController {
 
         // 弾け方はセルごとに選ぶ。連鎖でも隣のセルと同じ形にならない
         const pattern = PATTERNS[Math.floor(Math.random() * PATTERNS.length)];
-        const bias = pattern.bias === 0 ? 0 : Math.random() < 0.5 ? -pattern.bias : pattern.bias;
 
         for (let n = 0; n < perCell && count < MAX_PARTICLES; n += 1) {
           const base = count * FIELDS;
+
+          // 向きは全方向から選ぶ。上・左右にも同じように広がる
+          const angle = Math.random() * Math.PI * 2;
+          const speed = pattern.speedMin + Math.random() * pattern.speedSpan;
+          let vy = Math.sin(angle) * speed * pattern.verticalScale;
+          // 下向きだけ弱める。真下に落ちる破片ばかりに見えるのを防ぐ
+          if (vy > 0) vy *= 1 - pattern.upward;
+
           data[base + F_X] = centerX + (Math.random() - 0.5) * cell * pattern.scatter;
           data[base + F_Y] = centerY + (Math.random() - 0.5) * cell * pattern.scatter * 0.8;
-          data[base + F_VX] = bias + (Math.random() - 0.5) * pattern.spread;
-          data[base + F_VY] = -(pattern.jumpMin + Math.random() * pattern.jumpSpan);
+          data[base + F_VX] = Math.cos(angle) * speed;
+          data[base + F_VY] = vy;
           data[base + F_AGE] = 0;
           data[base + F_LIFE] = pattern.lifeMin + Math.random() * pattern.lifeSpan;
           data[base + F_SIZE] = SIZE_MIN + Math.floor(Math.random() * (SIZE_SPAN + 1));
