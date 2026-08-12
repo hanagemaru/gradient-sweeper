@@ -11,7 +11,14 @@ Last updated: 2026-08-11
   Its child route `/style-lab/color-map` renders every adjacency-to-tile mapping with the real
   sprites. It calls the production `getIceAsset()` from `src/lib/tile-assets.ts` directly, so it
   cannot drift from the game — change the mapping and the page follows.
-- The production game board uses the same `tiles-v5` snow, ice, flag, corner underlay, and cast-shadow layers.
+- Covered cells still use the `tiles-v5` snow, flag, corner underlay, and cast-shadow layers.
+- **Opened cells no longer use per-state PNGs.** They are a palette colour
+  (`src/lib/ice-colors.ts`) with a shared greyscale base drawing composited on top via
+  `mix-blend-mode: overlay` (`src/lib/tile-masks.ts`). All 45 adjacency states get a distinct
+  colour, and only 5 base drawings are needed. Compare them at `/style-lab/tile-masks`.
+- Each mask is built so its mean is mid-grey, which keeps `overlay` from shifting the tile's
+  lightness. The palette encodes the bomb count as lightness, so that property is load-bearing —
+  do not replace `overlay` with `multiply`.
 - The game screen uses the dark-blue pixel HUD and icy background from the approved style direction.
 - The glacier visual language is applied to `/game` only. Home, ranking, and result pages are still
   generic Tailwind gradients, and `src/components/Icon.tsx` still uses emoji placeholders.
@@ -30,13 +37,6 @@ Last updated: 2026-08-11
 - **No automated tests exist.** `npm run lint` and `npm run build` are the only gates, so neither
   catches a gameplay regression. Treat any change to `src/lib/game-logic.ts` or `src/hooks/useGame.ts`
   as unverified until tests are added.
-- **The ice colour mapping collapses.** 45 possible (red, blue) adjacency states map to only
-  11 distinct tiles; `ice-mix-1` and `ice-mix-3` are never rendered at all. See
-  `docs/technical/COLOR-MAPPING.md` for the full table and the four specific problems,
-  or `/style-lab/color-map` to compare the actual sprites.
-- **The game board re-renders 10 times per second while idle.** `useTimer` (`src/hooks/useTimer.ts`)
-  ticks every 100 ms and its state lives in the same component as `<Board>`
-  (`src/app/game/page.tsx`), so all 81 cells and their `next/image` elements reconcile on every tick.
 - **Endless scores are client-authoritative.** `src/app/api/score/route.ts` validates only `score >= 0`.
 - **Supabase RLS is not enabled** (see `docs/DEPLOYMENT.md`).
 

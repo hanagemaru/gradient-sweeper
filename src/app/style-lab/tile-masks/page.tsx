@@ -5,7 +5,7 @@ import {
   allProposedColors,
   proposedColor,
   type ProposedColor,
-} from "@/lib/color-proposal";
+} from "@/lib/ice-colors";
 import { MASK_BASE, maskAssetForTotal, maskLevelForTotal } from "@/lib/tile-masks";
 import styles from "./tile-masks.module.css";
 

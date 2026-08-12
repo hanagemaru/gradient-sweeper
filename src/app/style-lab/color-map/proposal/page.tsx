@@ -5,7 +5,7 @@ import {
   proposedColor,
   rankedPairs,
   type ProposedColor,
-} from "@/lib/color-proposal";
+} from "@/lib/ice-colors";
 import { getIceAsset } from "@/lib/tile-assets";
 import styles from "./proposal.module.css";
 
