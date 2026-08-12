@@ -26,8 +26,9 @@ docs/tasks/A-particles.md を読んで実装して
 | [C](./C-score-validation.md) | スコアのサーバー側検証 | 可 |
 | [D](./D-tests.md) | テスト整備 | E と同時不可 |
 | [E](./E-nextjs16.md) | Next.js 16 移行 | **単独で実施** |
+| [F](./F-first-click-safety.md) | 初手保証 | 可 |
 
-A・B・C は触るファイルが1つも重ならないので、3本同時に走らせてよい。
+A・B・C・F は触るファイルが1つも重ならないので、4本同時に走らせてよい。
 
 D と E は両方 `package.json` を触るので同時に走らせない。
 E は `package-lock.json` が巨大なコンフリクトになるため、他を全部マージしてから単独で行う。
