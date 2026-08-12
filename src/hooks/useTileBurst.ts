@@ -36,14 +36,37 @@ const MAX_PARTICLES = 260;
 /** 重力（px/秒^2）。跳ね上がってから落ちるまでが 0.4〜0.6 秒に収まる強さ */
 const GRAVITY = 620;
 
-const LIFE_MIN = 0.4;
-const LIFE_SPAN = 0.2;
+/**
+ * 飛び散り方のパターン。開いたセルごとに1つ選ぶ。
+ *
+ * 1種類だけだと、連鎖で並んだセルが同じ形に弾けて機械的に見える。
+ * セル単位で振ることで、同じ連鎖の中でも弾け方が揃わない。
+ * 寿命はどのパターンでも 0.4〜0.6 秒の範囲に収めている。
+ */
+interface BurstPattern {
+  /** 上向きの初速（px/秒） */
+  jumpMin: number;
+  jumpSpan: number;
+  /** 横方向の初速の広がり（px/秒） */
+  spread: number;
+  /** 左右どちらかに寄せる強さ（px/秒）。0 なら対称に散る */
+  bias: number;
+  /** 発生位置の散らばり（セルの一辺に対する比） */
+  scatter: number;
+  lifeMin: number;
+  lifeSpan: number;
+}
 
-/** 上向きの初速（px/秒） */
-const JUMP_MIN = 70;
-const JUMP_SPAN = 70;
-/** 横方向の初速の広がり（px/秒） */
-const SPREAD = 90;
+const PATTERNS: readonly BurstPattern[] = [
+  /** 高く跳ね上がる */
+  { jumpMin: 115, jumpSpan: 55, spread: 55, bias: 0, scatter: 0.45, lifeMin: 0.45, lifeSpan: 0.15 },
+  /** 低く横へ大きく広がる */
+  { jumpMin: 55, jumpSpan: 45, spread: 155, bias: 0, scatter: 0.6, lifeMin: 0.4, lifeSpan: 0.15 },
+  /** 片側へ寄って飛ぶ */
+  { jumpMin: 80, jumpSpan: 60, spread: 70, bias: 75, scatter: 0.5, lifeMin: 0.42, lifeSpan: 0.18 },
+  /** 手前で細かく散る */
+  { jumpMin: 45, jumpSpan: 50, spread: 105, bias: 0, scatter: 0.7, lifeMin: 0.4, lifeSpan: 0.12 },
+];
 
 /**
  * 破片の一辺（px）。ピクセルアートなので角ばった四角のまま扱う。
@@ -73,8 +96,14 @@ export interface BurstSource {
   adjacentBlue: number;
 }
 
-/** 縁取りの暗さ。元の色を保ったまま、明るいタイルの破片でも輪郭が出る程度に留める */
-const EDGE_SHADE = 0.62;
+/**
+ * 縁取りの色味と混ぜる割合。
+ *
+ * 黒方向に暗くすると、ほぼ白のタイルの破片では黒い線に見えて浮いてしまう。
+ * 氷の水色に寄せて薄く混ぜると、盤面の罫線と同じ系統の色になって輪郭だけが主張しない。
+ */
+const EDGE_TINT = { r: 74, g: 134, b: 180 } as const;
+const EDGE_MIX = 0.3;
 
 interface FragmentColor {
   /** 破片の本体。盤面のセルとまったく同じ色 */
@@ -94,11 +123,13 @@ interface FragmentColor {
  */
 const colorCache = new Map<number, FragmentColor>();
 
-function shade(hex: string, rate: number): string {
+/** 本体の色に氷の水色を混ぜて縁取りの色を作る */
+function edgeColor(hex: string): string {
   const value = parseInt(hex.slice(1), 16);
-  const r = Math.round(((value >> 16) & 0xff) * rate);
-  const g = Math.round(((value >> 8) & 0xff) * rate);
-  const b = Math.round((value & 0xff) * rate);
+  const keep = 1 - EDGE_MIX;
+  const r = Math.round(((value >> 16) & 0xff) * keep + EDGE_TINT.r * EDGE_MIX);
+  const g = Math.round(((value >> 8) & 0xff) * keep + EDGE_TINT.g * EDGE_MIX);
+  const b = Math.round((value & 0xff) * keep + EDGE_TINT.b * EDGE_MIX);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -108,7 +139,7 @@ function colorFor(red: number, blue: number): FragmentColor {
   if (cached !== undefined) return cached;
 
   const fill = proposedColor(red, blue).hex;
-  const color: FragmentColor = { fill, edge: shade(fill, EDGE_SHADE) };
+  const color: FragmentColor = { fill, edge: edgeColor(fill) };
   colorCache.set(key, color);
   return color;
 }
@@ -346,14 +377,18 @@ export function useTileBurst(): TileBurstController {
         const centerX = BURST_BLEED + source.col * cellStep + cell / 2;
         const centerY = BURST_BLEED + source.row * cellStep + cell / 2;
 
+        // 弾け方はセルごとに選ぶ。連鎖でも隣のセルと同じ形にならない
+        const pattern = PATTERNS[Math.floor(Math.random() * PATTERNS.length)];
+        const bias = pattern.bias === 0 ? 0 : Math.random() < 0.5 ? -pattern.bias : pattern.bias;
+
         for (let n = 0; n < perCell && count < MAX_PARTICLES; n += 1) {
           const base = count * FIELDS;
-          data[base + F_X] = centerX + (Math.random() - 0.5) * cell * 0.6;
-          data[base + F_Y] = centerY + (Math.random() - 0.5) * cell * 0.5;
-          data[base + F_VX] = (Math.random() - 0.5) * SPREAD;
-          data[base + F_VY] = -(JUMP_MIN + Math.random() * JUMP_SPAN);
+          data[base + F_X] = centerX + (Math.random() - 0.5) * cell * pattern.scatter;
+          data[base + F_Y] = centerY + (Math.random() - 0.5) * cell * pattern.scatter * 0.8;
+          data[base + F_VX] = bias + (Math.random() - 0.5) * pattern.spread;
+          data[base + F_VY] = -(pattern.jumpMin + Math.random() * pattern.jumpSpan);
           data[base + F_AGE] = 0;
-          data[base + F_LIFE] = LIFE_MIN + Math.random() * LIFE_SPAN;
+          data[base + F_LIFE] = pattern.lifeMin + Math.random() * pattern.lifeSpan;
           data[base + F_SIZE] = SIZE_MIN + Math.floor(Math.random() * (SIZE_SPAN + 1));
           colors[count] = color;
           count += 1;
