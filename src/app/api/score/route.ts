@@ -1,13 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase";
+import {
+  NormalizedSubmission,
+  RejectionCode,
+  ValidationWarning,
+  toStoredScore,
+  validateScoreSubmission,
+} from "@/lib/score-validation";
 
 // シンプルなレート制限（メモリ内）
+//
+// 注意: サーバーレス実行では実行インスタンスごとに Map が分かれ、再起動で消える。
+// つまりこれは「連打の抑制」であって、本気の攻撃者への対策にはならない。
+// 永続化するなら Supabase 側にテーブルを持つか、Netlify のエッジで制限をかける必要がある
+// （投稿ごとに追加の書き込みが発生するため、費用と効果を見てから入れる）。
+// 不正スコアそのものは、この下の検証で弾く設計にしてある。
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1分
 const RATE_LIMIT_MAX = 10; // 1分あたり10回
+const RATE_LIMIT_MAX_ENTRIES = 10000; // Map が無制限に膨らまないようにする閾値
+
+/** 期限切れのエントリを掃除する（Map が育ちすぎたときだけ実行）。 */
+function sweepRateLimitMap(now: number): void {
+  if (rateLimitMap.size < RATE_LIMIT_MAX_ENTRIES) return;
+
+  for (const [key, record] of rateLimitMap) {
+    if (now > record.resetAt) {
+      rateLimitMap.delete(key);
+    }
+  }
+}
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
+  sweepRateLimitMap(now);
+
   const record = rateLimitMap.get(ip);
 
   if (!record || now > record.resetAt) {
@@ -23,63 +50,33 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-interface ScoreRequestBody {
-  mode: string;
-  difficulty?: string;
-  // Endless用
-  score?: number;
-  endless_level?: number;
-  // TA用
-  time_ms?: number;
-  penalty_ms?: number;
-  // 共通
-  miss_count: number;
-  revive_count: number;
-  player_name?: string;
+/** 拒否コードに対応する HTTP ステータス。形の不備は 400、内容の矛盾は 422。 */
+function statusForRejection(code: RejectionCode): number {
+  return code === "invalid_request" ? 400 : 422;
 }
 
-function isValidScore(body: unknown): body is ScoreRequestBody {
-  if (!body || typeof body !== "object") return false;
+/** 個人を特定しうる値（プレイヤー名）を落としたログ用の要約。 */
+function logSummary(submission: NormalizedSubmission) {
+  return {
+    mode: submission.mode,
+    difficulty: submission.difficulty,
+    score: submission.score,
+    endless_level: submission.endlessLevel,
+    time_ms: submission.timeMs,
+    penalty_ms: submission.penaltyMs,
+    miss_count: submission.missCount,
+    revive_count: submission.reviveCount,
+  };
+}
 
-  const b = body as Record<string, unknown>;
+function logWarnings(submission: NormalizedSubmission, warnings: ValidationWarning[]): void {
+  if (warnings.length === 0) return;
 
-  // mode
-  if (!["endless", "ta"].includes(b.mode as string)) return false;
-
-  // difficulty（TAの場合必須）
-  if (b.mode === "ta") {
-    if (!["easy", "mid", "hard"].includes(b.difficulty as string)) return false;
-  }
-
-  // Endless: score と endless_level が必須
-  if (b.mode === "endless") {
-    if (typeof b.score !== "number" || b.score < 0) return false;
-    if (typeof b.endless_level !== "number" || b.endless_level < 1) return false;
-  }
-
-  // TA: time_ms が必須
-  if (b.mode === "ta") {
-    if (typeof b.time_ms !== "number" || b.time_ms < 0 || b.time_ms > 86400000) {
-      return false;
-    }
-  }
-
-  // penalty_ms（TA用、オプション）
-  if (b.penalty_ms !== undefined && (typeof b.penalty_ms !== "number" || b.penalty_ms < 0)) {
-    return false;
-  }
-
-  // miss_count
-  if (typeof b.miss_count !== "number" || b.miss_count < 0) return false;
-
-  // revive_count
-  if (typeof b.revive_count !== "number" || b.revive_count < 0) return false;
-
-  // player_name (optional)
-  if (b.player_name !== undefined && typeof b.player_name !== "string") return false;
-  if (typeof b.player_name === "string" && b.player_name.length > 50) return false;
-
-  return true;
+  // 保存はする。判断に迷う値を弾くより、通してログに残すほうが害が小さい。
+  console.warn("[score-validation] accepted with warnings:", {
+    ...logSummary(submission),
+    warnings: warnings.map((w) => `${w.code}: ${w.detail}`),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -88,56 +85,67 @@ export async function POST(request: NextRequest) {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
     if (isRateLimited(ip)) {
       return NextResponse.json(
-        { success: false, error: "Rate limited" },
+        { success: false, error: "Rate limited", code: "rate_limited" },
         { status: 429 }
       );
     }
 
-    const body = await request.json();
-
-    // バリデーション
-    if (!isValidScore(body)) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { success: false, error: "Invalid request" },
+        { success: false, error: "Invalid request", code: "invalid_request" },
         { status: 400 }
       );
     }
 
-    const supabase = createClient();
+    // バリデーション（形式 + プレイ内容との整合）
+    const validation = validateScoreSubmission(body);
+
+    if (!validation.ok) {
+      console.warn("[score-validation] rejected:", {
+        code: validation.code,
+        detail: validation.detail,
+      });
+      return NextResponse.json(
+        { success: false, error: validation.message, code: validation.code },
+        { status: statusForRejection(validation.code) }
+      );
+    }
+
+    const { submission, warnings } = validation;
+    logWarnings(submission, warnings);
 
     // Supabaseが未設定の場合はモックレスポンス
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      console.log("[Mock] Score submitted:", body);
+      console.log("[Mock] Score submitted:", logSummary(submission));
       return NextResponse.json(
         { success: true, id: "mock-" + Date.now() },
         { status: 201 }
       );
     }
 
+    const supabase = createClient();
+
     // スコア計算
-    // Endless: クライアントから受け取った score をそのまま使用
-    // TA: 最終タイム = time_ms + penalty_ms をスコアとして保存（ランキング昇順ソート用）
-    let dbScore: number;
-    if (body.mode === "endless") {
-      dbScore = body.score!;
-    } else {
-      const timeMsVal = body.time_ms || 0;
-      const penaltyMsVal = body.penalty_ms || 0;
-      dbScore = timeMsVal + penaltyMsVal;
-    }
+    // Endless: 検証を通ったクライアント申告のスコア
+    // TA: 最終タイム = time_ms + penalty_ms（ランキング昇順ソート用）
+    const dbScore = toStoredScore(submission);
 
     // DB登録
     const { data, error } = await supabase
       .from("scores")
       .insert({
-        mode: body.mode,
-        difficulty: body.mode === "ta" ? body.difficulty : null,
-        time_ms: body.mode === "ta" ? body.time_ms : null,
-        penalty_ms: body.penalty_ms || null,
-        endless_level: body.mode === "endless" ? body.endless_level : null,
-        miss_count: body.miss_count,
-        revive_count: body.revive_count,
-        player_name: body.player_name || null,
+        mode: submission.mode,
+        difficulty: submission.difficulty,
+        time_ms: submission.timeMs,
+        // Endless ではペナルティ時間の概念がないので、従来どおり NULL のまま入れる
+        penalty_ms: submission.mode === "ta" ? submission.penaltyMs : null,
+        endless_level: submission.endlessLevel,
+        miss_count: submission.missCount,
+        revive_count: submission.reviveCount,
+        player_name: submission.playerName,
         score: dbScore,
       })
       .select("id")
@@ -146,7 +154,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Supabase error:", error);
       return NextResponse.json(
-        { success: false, error: "Database error" },
+        { success: false, error: "Database error", code: "database_error" },
         { status: 500 }
       );
     }
@@ -155,7 +163,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("API error:", err);
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      { success: false, error: "Internal server error", code: "internal_error" },
       { status: 500 }
     );
   }

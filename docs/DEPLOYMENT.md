@@ -64,7 +64,7 @@ Gitの `main` ブランチにpushすると、Netlifyが自動で再デプロイ�
    - Project name: 任意（例: `gradient-sweeper`）
    - Database password: Generate a passwordで自動生成しメモ
    - Region: **Northeast Asia (Tokyo)** 推奨
-   - Enable automatic RLS: **OFF**（コードがRLS未対応のため）
+   - Enable automatic RLS: **OFF**（テーブル作成後に手動で ON にする。下記「RLS（Row Level Security）」参照）
 4. プロジェクト作成完了後、Settings → **API Keys** を開く
 5. **Secret keys** の `sb_secret_...` をコピー（`SUPABASE_SERVICE_ROLE_KEY` に使用）
 
@@ -72,7 +72,53 @@ Gitの `main` ブランチにpushすると、Netlifyが自動で再デプロイ�
 
 SQL Editor で下記「DBスキーマ・マイグレーション」セクションのSQLを実行。
 
-> **注意**: RLS（Row Level Security）は現在未設定。サービスロールキーを使用しているため動作に問題はないが、将来的に設定を検討。
+### 3. RLS（Row Level Security）
+
+`scores` テーブルへのアクセスはすべて Next.js の API Route 経由で、
+サーバー専用の `SUPABASE_SERVICE_ROLE_KEY` を使っている。
+サービスロールキーは RLS をバイパスするため、**RLS を有効にしてもアプリの動作は変わらない**。
+
+有効にする意味は、鍵が漏れたときの被害範囲を変えることにある。
+現状は RLS 未設定なので、公開鍵（anon / publishable key）が第三者の手に渡ると、
+そのままクライアントから `scores` を直接 insert / update / delete できてしまう。
+RLS を有効にしてポリシーを 1 つも作らなければ、サービスロールキー以外は何もできなくなる。
+
+テーブル作成後に SQL Editor で実行する。
+
+```sql
+-- RLS を有効化する。ポリシーを作らない = anon / authenticated からは一切アクセス不可。
+-- API Route が使うサービスロールキーは RLS をバイパスするので影響を受けない。
+ALTER TABLE scores ENABLE ROW LEVEL SECURITY;
+```
+
+ランキングをクライアントから直接読みたくなった場合だけ、読み取りポリシーを足す
+（現在は `/api/leaderboard` 経由で読んでいるので不要）。
+
+```sql
+-- 必要になったときだけ。読み取りのみ許可し、書き込みは API Route に限定したままにする。
+CREATE POLICY "scores are readable by anyone"
+ON scores FOR SELECT
+TO anon, authenticated
+USING (true);
+```
+
+#### DB 側の下限チェック（任意）
+
+サーバー側の検証（`src/lib/score-validation.ts`）とは別に、DB にも制約を置いておくと
+API Route を経由しない書き込みが混ざったときに気づける。既存データがこれを満たすことを
+確認してから追加すること。
+
+```sql
+ALTER TABLE scores
+ADD CONSTRAINT scores_non_negative CHECK (score >= 0),
+ADD CONSTRAINT scores_endless_has_level
+  CHECK (mode <> 'endless' OR endless_level >= 1),
+ADD CONSTRAINT scores_ta_has_time
+  CHECK (mode <> 'ta' OR (difficulty IS NOT NULL AND time_ms >= 0));
+```
+
+> **補足**: `score` カラムは INTEGER（int4、最大 2147483647）。
+> これを超える値は API 側で 422 として拒否している。
 
 ---
 
@@ -328,7 +374,7 @@ ALTER TABLE scores ADD CONSTRAINT player_name_length CHECK (length(player_name) 
 - [x] ランキングDB本番化（Supabase設定）
 - [ ] ハブサイト（hanage.app）の構築
 - [ ] Service Workerの実装（オフライン対応）
-- [ ] Supabase の RLS 設定
+- [ ] Supabase の RLS 設定（手順は「Supabaseの設定 → RLS（Row Level Security）」に記載済み。本番プロジェクトで実行するだけ）
 
 ---
 
