@@ -708,6 +708,25 @@
 .legendMix { background: #a879e1; }
 .legendBlue { background: #4aa4eb; }
 
+.colorMapLink {
+  display: block;
+  width: max-content;
+  margin: 12px auto 0;
+  padding: 6px 11px;
+  border: 2px solid #4b86b6;
+  background: #123f72;
+  box-shadow: inset 0 0 0 1px #2b6598;
+  color: #dff2ff;
+  font-family: var(--block-font);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+}
+
+.colorMapLink:hover {
+  border-color: #f0a94a;
+}
+
 .backLink {
   display: block;
   width: max-content;

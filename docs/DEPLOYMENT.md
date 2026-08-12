@@ -265,11 +265,43 @@ SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY"
 - Netlifyで環境変数を追加/変更した後は **再デプロイが必要**
 - Deploysタブ → **Trigger deploy** → **Clear cache and deploy**
 
-### ランキングが表示されない
+### ランキングが表示されない / 本番でSupabaseのデータが読めない
 
-- Supabaseの設定が正しいか確認
-- Network タブでAPIレスポンスを確認（`/api/leaderboard`）
-- モックモードの場合はテストデータが表示されます
+**まず「モックモードに落ちているのか、DB側の問題なのか」を切り分ける。**
+
+`src/app/api/leaderboard/route.ts` は `NEXT_PUBLIC_SUPABASE_URL` が未設定のとき、
+エラーを出さずに**黙ってモックデータを返す**。この挙動があるため、
+画面を見ただけでは「DBが空」と「環境変数が消えている」の区別がつかない。
+
+#### 判定
+
+ランキング画面、または `/api/leaderboard?mode=endless` のレスポンスを見る。
+
+| 見えているもの | 原因 | 対処 |
+|---|---|---|
+| `Player1` / `Player2` / `Player3` という固定データ | **モックモード**。Netlifyの環境変数が未設定または消失している | 下記A |
+| `Database error`（500）または空のランキング | **Supabase側**。プロジェクトの一時停止、テーブル欠損、キーの失効 | 下記B |
+
+#### A. 環境変数が原因の場合
+
+1. Netlify Site settings → **Environment variables** に
+   `NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` が存在するか確認
+2. 無ければ再設定（値は Supabase ダッシュボードの Settings → API Keys から取得）
+3. **再デプロイが必須**。Deploys → **Trigger deploy** → **Clear cache and deploy**
+
+#### B. Supabase側が原因の場合
+
+1. https://supabase.com/ のダッシュボードでプロジェクトの状態を確認する。
+   **無料プランは一定期間アクセスが無いとプロジェクトが一時停止される。**
+   長期間放置していた場合はこれが最有力。停止していれば Restore / Resume で復帰させる
+2. 復帰後、Table Editor で `scores` テーブルが残っているか確認。
+   消えていれば「DBスキーマ・マイグレーション」のSQLを再実行する
+3. Settings → API Keys でキーがローテーションされていないか確認。
+   変わっていれば Netlify 側の `SUPABASE_SERVICE_ROLE_KEY` も更新して再デプロイ
+4. Netlify の Function logs で `Supabase error:` の実際のメッセージを確認する
+   （`route.ts` が `console.error` で出力している）
+
+> キーの実値はこのドキュメントを含めリポジトリ内のどこにも書かないこと。
 
 ### DBマイグレーションでエラー
 
@@ -290,11 +322,13 @@ ALTER TABLE scores ADD CONSTRAINT player_name_length CHECK (length(player_name) 
 
 ## 次のステップ
 
+プロジェクト全体の優先順位と着手順は `docs/ROADMAP.md` を参照。
+デプロイ・インフラ観点で残っているものは以下。
+
 - [x] ランキングDB本番化（Supabase設定）
-- [ ] UI本番作り込み（アセット適用）
-- [ ] 広告適用
 - [ ] ハブサイト（hanage.app）の構築
 - [ ] Service Workerの実装（オフライン対応）
+- [ ] Supabase の RLS 設定
 
 ---
 
