@@ -15,7 +15,6 @@
   z-index: 3;
 }
 
-.iceTile,
 .snowTile,
 .snowUnderlay,
 .flagOverlay {
@@ -27,12 +26,34 @@
   user-select: none;
 }
 
-.iceTile {
+/*
+ * 開いたセルの氷面。
+ * 背景色が隣接数を表すパレットの色で、その上に下絵を overlay で重ねる。
+ * isolation: isolate がないとブレンドが盤面の背景まで抜けてしまう。
+ */
+.iceSurface {
+  position: absolute;
   z-index: 1;
   top: 0;
   left: 0;
+  display: block;
   width: 36px;
   height: 36px;
+  isolation: isolate;
+  pointer-events: none;
+  user-select: none;
+}
+
+.iceDetail {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  user-select: none;
 }
 
 .snowUnderlay {

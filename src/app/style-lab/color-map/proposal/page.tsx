@@ -5,7 +5,7 @@ import {
   proposedColor,
   rankedPairs,
   type ProposedColor,
-} from "@/lib/color-proposal";
+} from "@/lib/ice-colors";
 import { getIceAsset } from "@/lib/tile-assets";
 import styles from "./proposal.module.css";
 
@@ -305,6 +305,9 @@ export default function ProposalPage() {
         </section>
 
         <div className={styles.links}>
+          <Link href="/style-lab/tile-masks" className={styles.nextLink}>
+            下絵に色を乗せた実物を見る →
+          </Link>
           <Link href="/style-lab/color-map" className={styles.backLink}>
             ← 現行の対応表
           </Link>

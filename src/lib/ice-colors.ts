@@ -1,12 +1,12 @@
 /**
- * 色マッピングの再設計案。
+ * 氷タイルの色。隣接する赤・青の爆弾数から、そのセルの色を決める。
  *
- * 現行の `getIceAsset()`（src/lib/tile-assets.ts）は 45 通りの隣接状態を
- * 11 種類のタイルにしか分けられていない。この案は
- * **45 状態すべてに異なる色を与える**ことを最優先に置く。
+ * 以前の `getIceAsset()`（src/lib/tile-assets.ts）は 45 通りの隣接状態を
+ * 11 種類のタイルにしか分けられておらず、異なる状態が同じ色で表示されていた。
+ * ここでは **45 状態すべてに異なる色を与える**ことを最優先に置く。
  *
- * まだ盤面には適用していない。検証ページ `/style-lab/color-map/proposal` の
- * 表示専用で、採用が決まってから Cell の描画に繋ぐ。
+ * 検証ページ: `/style-lab/color-map/proposal`（色のみ）、
+ * `/style-lab/tile-masks`（下絵と合成した実物）
  *
  * ## 設計
  *
@@ -24,16 +24,25 @@
 /** 隣接セルの最大数（9x9 盤面の 1 セル） */
 export const MAX_ADJACENT = 8;
 
-/** 純青側の色相（度） */
-const HUE_BLUE = 252;
+/**
+ * 純青側の色相（度）。
+ *
+ * 当初の 252° は sRGB の色域に収まらず、彩度が要求値の 68% まで削られていた。
+ * 赤側は 92% 前後だったため、青だけがくすんで見えていた。
+ *
+ * 青端・赤端・最大の暗さの組み合わせを総当たりし、
+ * 「弧全体で同じ彩度を出せること」を満たしたうえで
+ * 隣り合う色の差が最大になる点として 262°〜30°（弧128°）を選んでいる。
+ */
+const HUE_BLUE = 262;
 /** 純青から純赤までの弧の長さ（度）。紫を経由する向きに進む */
-const HUE_ARC = 133;
+const HUE_ARC = 128;
 
 /** 合計 1 個のときの明度・彩度 */
 const L_MIN_BOMBS = 0.9;
 const C_MIN_BOMBS = 0.055;
 /** 合計 8 個のときの明度・彩度 */
-const L_MAX_BOMBS = 0.48;
+const L_MAX_BOMBS = 0.5;
 const C_MAX_BOMBS = 0.21;
 
 /** 隣接 0（安全）のタイル */
@@ -88,27 +97,17 @@ function toHex(linear: [number, number, number]): string {
   );
 }
 
-/**
- * OKLCH を sRGB に変換する。
- * 指定した彩度が sRGB の色域外なら、色相と明度を保ったまま彩度だけ落とす。
- * 色相＝比率という対応を崩さないための処理。
- */
-function oklchToSrgb(lightness: number, chroma: number, hueDeg: number): {
-  hex: string;
-  lab: [number, number, number];
-  chroma: number;
-} {
+/** 指定した明度・色相で sRGB に収まる最大の彩度を二分探索で求める */
+function maxChroma(lightness: number, hueDeg: number): number {
   const rad = (hueDeg * Math.PI) / 180;
 
   let low = 0;
-  let high = chroma;
+  let high = 0.45;
   let fitted = 0;
 
-  // 色域に収まる最大の彩度を二分探索で求める
-  for (let i = 0; i < 24; i += 1) {
+  for (let i = 0; i < 26; i += 1) {
     const mid = (low + high) / 2;
-    const candidate = oklabToLinearSrgb(lightness, mid * Math.cos(rad), mid * Math.sin(rad));
-    if (inGamut(candidate)) {
+    if (inGamut(oklabToLinearSrgb(lightness, mid * Math.cos(rad), mid * Math.sin(rad)))) {
       fitted = mid;
       low = mid;
     } else {
@@ -116,13 +115,48 @@ function oklchToSrgb(lightness: number, chroma: number, hueDeg: number): {
     }
   }
 
-  const a = fitted * Math.cos(rad);
-  const b = fitted * Math.sin(rad);
+  return fitted;
+}
+
+/** 明度ごとの走査結果。合計数は9通りしかないので都度計算せず覚えておく */
+const arcChromaCache = new Map<number, number>();
+
+/**
+ * その明度において、色相の弧のどこでも出せる彩度の上限。
+ *
+ * 色相ごとに出せる最大彩度は違うので、そのまま要求値を渡すと
+ * 出せない色相だけが削られて「青だけくすむ」ことになる。
+ * 弧全体の最小値に合わせれば、同じ合計数の色はすべて同じ彩度になる。
+ */
+function chromaCeilingForArc(lightness: number): number {
+  const cached = arcChromaCache.get(lightness);
+  if (cached !== undefined) return cached;
+
+  let ceiling = Infinity;
+  const samples = 48;
+
+  for (let i = 0; i <= samples; i += 1) {
+    const hue = (HUE_BLUE + (HUE_ARC * i) / samples) % 360;
+    ceiling = Math.min(ceiling, maxChroma(lightness, hue));
+  }
+
+  arcChromaCache.set(lightness, ceiling);
+  return ceiling;
+}
+
+/** OKLCH を sRGB に変換する。彩度は呼び出し側で色域内に収めておくこと */
+function oklchToSrgb(
+  lightness: number,
+  chroma: number,
+  hueDeg: number,
+): { hex: string; lab: [number, number, number] } {
+  const rad = (hueDeg * Math.PI) / 180;
+  const a = chroma * Math.cos(rad);
+  const b = chroma * Math.sin(rad);
 
   return {
     hex: toHex(oklabToLinearSrgb(lightness, a, b)),
     lab: [lightness, a, b],
-    chroma: fitted,
   };
 }
 
@@ -135,8 +169,8 @@ export function proposedColor(red: number, blue: number): ProposedColor {
   const total = red + blue;
 
   if (total === 0) {
-    const { hex, lab, chroma } = oklchToSrgb(L_CLEAR, C_CLEAR, H_CLEAR);
-    return { red, blue, hex, lab, lightness: L_CLEAR, chroma, hue: H_CLEAR };
+    const { hex, lab } = oklchToSrgb(L_CLEAR, C_CLEAR, H_CLEAR);
+    return { red, blue, hex, lab, lightness: L_CLEAR, chroma: C_CLEAR, hue: H_CLEAR };
   }
 
   // 比率 0 = 純青、1 = 純赤
@@ -148,7 +182,11 @@ export function proposedColor(red: number, blue: number): ProposedColor {
   const lightness = L_MIN_BOMBS + density * (L_MAX_BOMBS - L_MIN_BOMBS);
   const requestedChroma = C_MIN_BOMBS + density * (C_MAX_BOMBS - C_MIN_BOMBS);
 
-  const { hex, lab, chroma } = oklchToSrgb(lightness, requestedChroma, hue);
+  // 弧のどこでも出せる値に切り詰める。
+  // 色相ごとに削れ方が違うと、同じ合計数なのに青だけくすむ。
+  const chroma = Math.min(requestedChroma, chromaCeilingForArc(lightness));
+
+  const { hex, lab } = oklchToSrgb(lightness, chroma, hue);
 
   return { red, blue, hex, lab, lightness, chroma, hue };
 }

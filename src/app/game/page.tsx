@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useGame } from "@/hooks/useGame";
-import { formatTime, useTimer } from "@/hooks/useTimer";
+import { TimerDisplay } from "@/components/game/TimerDisplay";
 import { useScorePopup } from "@/hooks/useScorePopup";
 import { useI18n } from "@/i18n/useI18n";
 import { Board } from "@/components/game/Board";
@@ -47,8 +47,10 @@ function GameContent() {
     nextLevel,
   } = useGame(mode, difficulty);
 
-  // タイマー（TAモードのみ使用）
-  const timer = useTimer();
+  // 経過時間（TAモードのみ使用）。
+  // 100ms ごとの更新で盤面まで再描画されないよう、state ではなく ref で持ち、
+  // 表示は TimerDisplay の中に閉じ込めている。
+  const elapsedRef = useRef(0);
 
   // スコアポップアップ（Endlessのみ使用）
   const { popups, addPopup } = useScorePopup();
@@ -65,26 +67,6 @@ function GameContent() {
   // TAモード復活時のペナルティポップアップ表示
   const [showPenaltyPopup, setShowPenaltyPopup] = useState(false);
   const [penaltyPopupKey, setPenaltyPopupKey] = useState(0);
-
-  // ゲーム開始時にタイマースタート（TAのみ）
-  useEffect(() => {
-    if (mode === "ta") {
-      timer.start();
-      return () => timer.stop();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
-
-  // タイマー制御（TAのみ）：クリア・ゲームオーバー・ポーズで即停止
-  useEffect(() => {
-    if (mode !== "ta") return;
-    if (state.isGameOver || state.isCleared || state.isPaused) {
-      timer.pause();
-    } else {
-      timer.resume();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, state.isPaused, state.isGameOver, state.isCleared, timer.pause, timer.resume]);
 
   // ポップアップ表示（Endlessのみ）
   // - 爆弾ミス時: マイナススコアを数値表示
@@ -155,14 +137,13 @@ function GameContent() {
     if (result === "completed") {
       revive();
       if (mode === "ta") {
-        timer.resume();
         // +30s ペナルティポップアップ表示
         setShowPenaltyPopup(true);
         setPenaltyPopupKey((prev) => prev + 1);
         setTimeout(() => setShowPenaltyPopup(false), 1200);
       }
     }
-  }, [revive, timer, mode]);
+  }, [revive, mode]);
 
   const handleGiveUp = useCallback(() => {
     // ゲームオーバー時の Give Up → 結果画面へ遷移
@@ -177,14 +158,14 @@ function GameContent() {
       params.set("score", state.score.toString());
     }
     if (mode === "ta") {
-      params.set("time", timer.elapsedMs.toString());
+      params.set("time", elapsedRef.current.toString());
       params.set("penaltyMs", state.penaltyMs.toString());
     }
     if (difficulty) {
       params.set("difficulty", difficulty);
     }
     router.push(`/result?${params.toString()}`);
-  }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs, router]);
+  }, [mode, difficulty, state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs, router]);
 
   const handleQuitFromPause = useCallback(() => {
     // ポーズからの Quit → 直接ホームへ（スコア登録なし）
@@ -198,10 +179,7 @@ function GameContent() {
 
   const handleNextLevel = useCallback(() => {
     nextLevel();
-    if (mode === "ta") {
-      timer.resume();
-    }
-  }, [nextLevel, timer, mode]);
+  }, [nextLevel]);
 
   const handleFinish = useCallback(() => {
     // 結果画面へ遷移
@@ -216,14 +194,14 @@ function GameContent() {
       params.set("score", state.score.toString());
     }
     if (mode === "ta") {
-      params.set("time", timer.elapsedMs.toString());
+      params.set("time", elapsedRef.current.toString());
       params.set("penaltyMs", state.penaltyMs.toString());
     }
     if (difficulty) {
       params.set("difficulty", difficulty);
     }
     router.push(`/result?${params.toString()}`);
-  }, [mode, difficulty, timer.elapsedMs, state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs, router]);
+  }, [mode, difficulty, state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs, router]);
 
   // TAモード: クリア後の答え合わせ完了で自動的に結果画面へ遷移
   useEffect(() => {
@@ -269,7 +247,11 @@ function GameContent() {
                   )}
                 />
               ) : (
-                <strong>{formatTime(timer.elapsedMs + state.penaltyMs)}</strong>
+                <TimerDisplay
+                  running={!state.isPaused && !state.isGameOver && !state.isCleared}
+                  penaltyMs={state.penaltyMs}
+                  elapsedRef={elapsedRef}
+                />
               )}
               {mode === "ta" && showPenaltyPopup && (
                 <em key={penaltyPopupKey} className="score-float-up">+30s</em>
