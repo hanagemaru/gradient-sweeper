@@ -13,6 +13,19 @@ import styles from "./pixel-ui.module.css";
 const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
 const MOTIF_BASE = "/assets/frostbound/motifs-v2";
 
+const WALLPAPER_ASSETS = [
+  { base: MOTIF_BASE, name: "cell-covered-large" },
+  { base: CRYSTAL_BASE, name: "cluster-medium" },
+  { base: MOTIF_BASE, name: "cell-open-red" },
+  { base: MOTIF_BASE, name: "l-panel-blue" },
+  { base: CRYSTAL_BASE, name: "cluster-wide" },
+  { base: MOTIF_BASE, name: "cell-open-purple-wide" },
+  { base: MOTIF_BASE, name: "cell-covered-medium" },
+  { base: CRYSTAL_BASE, name: "cluster-large" },
+] as const;
+
+const WALLPAPER_ITEM_COUNT = 48;
+
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
@@ -40,17 +53,19 @@ function DecorativeImage({
 function PixelBackdrop() {
   return (
     <div className={styles.backdrop} aria-hidden="true">
-      <DecorativeImage base={MOTIF_BASE} name="cell-covered-large" className={styles.mTopLeft} />
-      <DecorativeImage base={MOTIF_BASE} name="cell-open-red" className={styles.mTopRed} />
-      <DecorativeImage base={MOTIF_BASE} name="l-panel-blue" className={styles.mRightUpper} />
-      <DecorativeImage base={MOTIF_BASE} name="cell-open-purple-wide" className={styles.mBottomLeft} />
-      <DecorativeImage base={MOTIF_BASE} name="cell-covered-medium" className={styles.mBottomRight} />
-      <DecorativeImage base={MOTIF_BASE} name="cell-open-blue" className={styles.mMidRight} />
-
-      <DecorativeImage base={CRYSTAL_BASE} name="cluster-large" className={styles.cTopRight} />
-      <DecorativeImage base={CRYSTAL_BASE} name="cluster-medium" className={styles.cBottomLeft} />
-      <DecorativeImage base={CRYSTAL_BASE} name="cluster-wide" className={styles.cBottomRight} />
-      <DecorativeImage base={CRYSTAL_BASE} name="accent-small" className={styles.cMidLeft} />
+      <div className={styles.wallpaperGrid}>
+        {Array.from({ length: WALLPAPER_ITEM_COUNT }, (_, index) => {
+          const asset = WALLPAPER_ASSETS[index % WALLPAPER_ASSETS.length];
+          return (
+            <DecorativeImage
+              key={`${asset.name}-${index}`}
+              base={asset.base}
+              name={asset.name}
+              className={styles.wallpaperImage}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
