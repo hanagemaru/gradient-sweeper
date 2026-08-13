@@ -96,8 +96,9 @@ function countAdjacentBombs(
 
 /**
  * 盤面を生成
+ * @param excluded 爆弾を置かないマス（座標を row * GRID_SIZE + col で表したもの）
  */
-export function generateBoard(bombCount: number): Board {
+export function generateBoard(bombCount: number, excluded?: Set<number>): Board {
   const cells: Cell[][] = [];
 
   // 1. 空のセルで初期化
@@ -116,12 +117,18 @@ export function generateBoard(bombCount: number): Board {
     }
   }
 
-  // 2. 爆弾を配置
+  // 2. 爆弾を配置（除外マスは候補から取り除く。引き直しループにはしない）
   const positions = shuffleArray(
     Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => i)
+      .filter((i) => !excluded?.has(i))
   );
 
-  for (let i = 0; i < bombCount; i++) {
+  // 候補が足りなければ置ける分だけに切る。
+  // 現在の呼び出し（MAX_BOMBS=80、フォールバック時の空き80）では起きないが、
+  // 余裕がゼロなので、上限や除外範囲を変えたときに静かに壊れるのを防ぐ。
+  const placeable = Math.min(bombCount, positions.length);
+
+  for (let i = 0; i < placeable; i++) {
     const pos = positions[i];
     const row = Math.floor(pos / GRID_SIZE);
     const col = pos % GRID_SIZE;
@@ -138,7 +145,84 @@ export function generateBoard(bombCount: number): Board {
     }
   }
 
-  return { cells, bombCount };
+  // 実際に置けた数を返す（要求数と食い違ったまま盤面が嘘をつかないように）
+  return { cells, bombCount: placeable };
+}
+
+// 3x3除外で確保できる爆弾数の上限（81 - 9）
+const MAX_BOMBS_FOR_ZONE_EXCLUSION = GRID_SIZE * GRID_SIZE - 9;
+
+/**
+ * 初手保証のための除外マスを計算する
+ *
+ * 通常はタップしたマスとその周囲8マス（3x3）を除外する。
+ * 除外後の候補マス数（72）を超える爆弾数の場合、3x3では爆弾を置き切れないため、
+ * タップしたマス1つだけを除外するフォールバックに落とす。
+ */
+export function getFirstClickExclusions(
+  row: number,
+  col: number,
+  bombCount: number
+): Set<number> {
+  const tapped = row * GRID_SIZE + col;
+
+  if (bombCount > MAX_BOMBS_FOR_ZONE_EXCLUSION) {
+    return new Set([tapped]);
+  }
+
+  const excluded = new Set<number>([tapped]);
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const r = row + dr;
+      const c = col + dc;
+      if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+        excluded.add(r * GRID_SIZE + c);
+      }
+    }
+  }
+
+  return excluded;
+}
+
+/**
+ * 初手用に盤面を作り直す
+ *
+ * 引き直すのは爆弾の配置だけで、プレイヤーがすでに立てた旗は引き継ぐ。
+ * 爆弾の位置はまだ見えていないので作り直しても矛盾しないが、
+ * 旗はプレイヤー自身が置いて画面で見ているものなので、消すと矛盾になる。
+ */
+export function regenerateForFirstClick(
+  board: Board,
+  bombCount: number,
+  row: number,
+  col: number
+): Board {
+  const next = generateBoard(
+    bombCount,
+    getFirstClickExclusions(row, col, bombCount)
+  );
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (board.cells[r][c].state === "flagged") {
+        next.cells[r][c].state = "flagged";
+      }
+    }
+  }
+
+  return next;
+}
+
+/**
+ * その盤面がまだ初手かどうかを判定する
+ *
+ * 状態は持たず、盤面から導出する。開いたセル（revealed / exploded）が
+ * 1つも無ければ初手とみなす。旗（flagged）は判定に影響しない。
+ */
+export function isFirstClick(board: Board): boolean {
+  return board.cells.every((row) =>
+    row.every((cell) => cell.state !== "revealed" && cell.state !== "exploded")
+  );
 }
 
 /**
