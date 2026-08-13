@@ -123,7 +123,12 @@ export function generateBoard(bombCount: number, excluded?: Set<number>): Board 
       .filter((i) => !excluded?.has(i))
   );
 
-  for (let i = 0; i < bombCount; i++) {
+  // 候補が足りなければ置ける分だけに切る。
+  // 現在の呼び出し（MAX_BOMBS=80、フォールバック時の空き80）では起きないが、
+  // 余裕がゼロなので、上限や除外範囲を変えたときに静かに壊れるのを防ぐ。
+  const placeable = Math.min(bombCount, positions.length);
+
+  for (let i = 0; i < placeable; i++) {
     const pos = positions[i];
     const row = Math.floor(pos / GRID_SIZE);
     const col = pos % GRID_SIZE;
@@ -140,7 +145,8 @@ export function generateBoard(bombCount: number, excluded?: Set<number>): Board 
     }
   }
 
-  return { cells, bombCount };
+  // 実際に置けた数を返す（要求数と食い違ったまま盤面が嘘をつかないように）
+  return { cells, bombCount: placeable };
 }
 
 // 3x3除外で確保できる爆弾数の上限（81 - 9）
@@ -176,6 +182,35 @@ export function getFirstClickExclusions(
   }
 
   return excluded;
+}
+
+/**
+ * 初手用に盤面を作り直す
+ *
+ * 引き直すのは爆弾の配置だけで、プレイヤーがすでに立てた旗は引き継ぐ。
+ * 爆弾の位置はまだ見えていないので作り直しても矛盾しないが、
+ * 旗はプレイヤー自身が置いて画面で見ているものなので、消すと矛盾になる。
+ */
+export function regenerateForFirstClick(
+  board: Board,
+  bombCount: number,
+  row: number,
+  col: number
+): Board {
+  const next = generateBoard(
+    bombCount,
+    getFirstClickExclusions(row, col, bombCount)
+  );
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (board.cells[r][c].state === "flagged") {
+        next.cells[r][c].state = "flagged";
+      }
+    }
+  }
+
+  return next;
 }
 
 /**

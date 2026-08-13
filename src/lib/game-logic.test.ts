@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { GRID_SIZE, type Board } from "@/types/game";
 import {
   checkWin,
+  countFlags,
   generateBoard,
   getFirstClickExclusions,
   isFirstClick,
+  regenerateForFirstClick,
   revealCell,
   toggleFlag,
 } from "./game-logic";
@@ -144,6 +146,11 @@ describe("getFirstClickExclusions", () => {
   it("MAX_BOMBS（80個）でもフォールバックが働く", () => {
     expect(getFirstClickExclusions(4, 4, 80).size).toBe(1);
   });
+
+  it("MAX_BOMBS（80個）は1マス除外後の空き（80）とちょうど一致する", () => {
+    const excluded = getFirstClickExclusions(4, 4, 80);
+    expect(GRID_SIZE * GRID_SIZE - excluded.size).toBe(80);
+  });
 });
 
 describe("generateBoard の除外リスト", () => {
@@ -178,6 +185,16 @@ describe("generateBoard の除外リスト", () => {
       expect(countBombs(board)).toBe(bombCount);
       expect(board.cells[4][4].hasBomb).toBe(false);
     }
+  });
+
+  it("候補より多い爆弾数を要求されても落ちず、置ける分だけに切る", () => {
+    // 現在の呼び出しでは起きない組み合わせだが、上限を変えたときに
+    // undefined 参照でクラッシュしないことを保証する
+    const excluded = new Set([0, 1, 2]);
+    const board = generateBoard(GRID_SIZE * GRID_SIZE, excluded);
+
+    expect(countBombs(board)).toBe(GRID_SIZE * GRID_SIZE - excluded.size);
+    expect(board.bombCount).toBe(GRID_SIZE * GRID_SIZE - excluded.size);
   });
 
   it("境界値: 爆弾72個ちょうどは3x3除外のまま生成できる", () => {
@@ -218,6 +235,44 @@ describe("初手保証", () => {
         expect(result.type).not.toBe("bomb");
       }
     }
+  });
+
+  it("盤面を作り直しても、すでに立てた旗は引き継がれる", () => {
+    const board = generateBoard(10);
+    toggleFlag(board, 0, 0);
+    toggleFlag(board, 8, 8);
+    toggleFlag(board, 3, 3); // 除外される3x3の中の旗
+
+    const next = regenerateForFirstClick(board, 10, 4, 4);
+
+    expect(next.cells[0][0].state).toBe("flagged");
+    expect(next.cells[8][8].state).toBe("flagged");
+    expect(next.cells[3][3].state).toBe("flagged");
+    expect(countFlags(next)).toBe(3);
+  });
+
+  it("旗を引き継いでも初手の安全性と除外は保たれる", () => {
+    const board = generateBoard(30);
+    toggleFlag(board, 0, 0);
+
+    const next = regenerateForFirstClick(board, 30, 4, 4);
+
+    expect(countBombs(next)).toBe(30);
+    for (let dr = -1; dr <= 1; dr += 1) {
+      for (let dc = -1; dc <= 1; dc += 1) {
+        expect(next.cells[4 + dr][4 + dc].hasBomb).toBe(false);
+      }
+    }
+  });
+
+  it("旗を立てたマスをタップしても開かない（旗が消えないので noop のまま）", () => {
+    const board = generateBoard(10);
+    toggleFlag(board, 4, 4);
+
+    const next = regenerateForFirstClick(board, 10, 4, 4);
+
+    expect(revealCell(next, 4, 4).type).toBe("noop");
+    expect(next.cells[4][4].state).toBe("flagged");
   });
 
   it("isFirstClick は開いたセルが1つも無ければtrueを返す", () => {
