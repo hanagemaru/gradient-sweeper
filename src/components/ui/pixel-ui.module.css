@@ -1,12 +1,20 @@
+@font-face {
+  font-family: "MaruMonica";
+  src: url("/fonts/marumonica.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
 .scene {
   --block-font: "VT323", ui-monospace, monospace;
-  --jp-font: "DotGothic16", sans-serif;
-  --navy-950: #061a37;
-  --navy-900: #0d2f5c;
-  --navy-800: #163f77;
-  --navy-700: #2c6098;
+  --jp-font: "MaruMonica", sans-serif;
+  --navy-950: #063669;
+  --navy-900: #075b9f;
+  --navy-800: #0a4f91;
+  --navy-700: #2a7fba;
   --cyan: #8fe0f2;
-  --cyan-dim: #4c8fae;
+  --cyan-dim: #62b6d3;
   --amber: #f0a94a;
   --asset-shadow: 4px 5px 0 rgba(30, 55, 105, 0.28);
 
@@ -192,7 +200,7 @@
   margin: 9px 0 0;
   color: #a9c8e8;
   font-family: var(--jp-font);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.06em;
 }
 
@@ -274,17 +282,17 @@
 
 .button_sm {
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .button_md {
   padding: 11px 13px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .button_lg {
   padding: 14px 15px;
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .buttonBlock {
@@ -381,7 +389,7 @@
   padding: 9px 12px;
   border-bottom: 1px solid var(--navy-700);
   color: #dbeaf9;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .stat:last-child {
@@ -410,7 +418,7 @@
   gap: 7px;
   margin-bottom: 14px;
   color: #a9c8e8;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .field small {
@@ -425,7 +433,7 @@
   background: var(--navy-950);
   color: #fff;
   font-family: var(--jp-font);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .input::placeholder {
@@ -442,7 +450,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .table th {

@@ -21,29 +21,34 @@ function cx(...names: Array<string | false | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
 
-type JapaneseFont = "dotgothic" | "marumonica" | "pixelmplus";
+type FontPreview =
+  | "mixed-regular"
+  | "mixed-bold"
+  | "unified-regular"
+  | "unified-bold";
 
 const FONT_OPTIONS: Array<{
-  id: JapaneseFont;
+  id: FontPreview;
   label: string;
   note: string;
 }> = [
-  { id: "dotgothic", label: "現行 DotGothic16", note: "読みやすさ優先" },
-  { id: "marumonica", label: "候補A マルモニカ", note: "丸み・MOTHER系" },
-  { id: "pixelmplus", label: "候補B PixelMplus12", note: "角張り・初期携帯機系" },
+  { id: "mixed-regular", label: "日: マルモニカ / 英: VT323", note: "Regular" },
+  { id: "mixed-bold", label: "日: マルモニカ / 英: VT323", note: "CSS太字（試作）" },
+  { id: "unified-regular", label: "日本語・英語ともマルモニカ", note: "Regular" },
+  { id: "unified-bold", label: "日本語・英語ともマルモニカ", note: "CSS太字（試作）" },
 ];
 
-const FontContext = createContext<JapaneseFont>("dotgothic");
+const FontContext = createContext<FontPreview>("mixed-regular");
 
 export function FontPreviewProvider({ children }: { children: ReactNode }) {
-  const [font, setFont] = useState<JapaneseFont>("dotgothic");
+  const [font, setFont] = useState<FontPreview>("mixed-regular");
 
   return (
     <FontContext.Provider value={font}>
-      <aside className={styles.fontPicker} aria-label="日本語フォント比較">
+      <aside className={styles.fontPicker} aria-label="マルモニカの日本語・英語比較">
         <div className={styles.fontPickerHeading}>
-          <strong>日本語フォント比較</strong>
-          <span>画面構成は変えず、文字だけ切り替え</span>
+          <strong>マルモニカ比較</strong>
+          <span>公式Boldはないため、太字はCSS合成</span>
         </div>
         <div className={styles.fontOptions}>
           {FONT_OPTIONS.map((option) => (
@@ -113,8 +118,8 @@ export function Scene({ children }: { children: ReactNode }) {
     <div
       className={cx(
         styles.screen,
-        font === "marumonica" && styles.fontMaruMonica,
-        font === "pixelmplus" && styles.fontPixelMplus,
+        font.startsWith("unified") && styles.fontUnified,
+        font.endsWith("bold") && styles.fontBold,
       )}
     >
       <div className={styles.backdrop} aria-hidden="true">

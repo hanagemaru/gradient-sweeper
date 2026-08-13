@@ -1,4 +1,6 @@
-These subset fonts are included only for the CRYSTAL FIELD style-lab comparison.
+MaruMonica is used by the production pixel UI and the CRYSTAL FIELD comparison.
+The production file is a WOFF2 conversion that retains the complete character set.
+The older subset files in this directory remain only for comparison history.
 
 x12y16pxMaruMonica, Version 2025-09-03
 Copyright (c) 2021-2025 hicc / 患者長ひっく

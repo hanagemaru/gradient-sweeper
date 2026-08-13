@@ -7,7 +7,6 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
-import "@fontsource/dotgothic16/japanese-400.css";
 import { useI18n } from "@/i18n/useI18n";
 import styles from "./pixel-ui.module.css";
 

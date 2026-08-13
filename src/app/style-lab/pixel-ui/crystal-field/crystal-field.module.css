@@ -4,21 +4,13 @@
  * 添付の参考画像を基準に、既存アセットと同じ絵の文法（縁1px、粒、面取り）で
  * 背景装飾を組み合わせている。文章指示と画像が食い違う場合は画像を優先した。
  *
- * フォント: 英数字と数字は VT323（レイアウト全体で既に読み込み済み）、
- * 日本語は DotGothic16。VT323 は日本語グリフを持たないため。
+ * フォント: 日本語は採用したマルモニカ。英語見出しを VT323 のまま残す案と、
+ * マルモニカへ統一する案を比較できる。
  */
 
 @font-face {
-  font-family: "MaruMonicaSubset";
-  src: url("/fonts/style-lab/marumonica-subset.ttf") format("truetype");
-  font-display: swap;
-  font-style: normal;
-  font-weight: 400;
-}
-
-@font-face {
-  font-family: "PixelMplus12Subset";
-  src: url("/fonts/style-lab/pixel-mplus-12-subset.ttf") format("truetype");
+  font-family: "MaruMonica";
+  src: url("/fonts/marumonica.woff2") format("woff2");
   font-display: swap;
   font-style: normal;
   font-weight: 400;
@@ -26,13 +18,15 @@
 
 .screen {
   --block-font: "VT323", ui-monospace, monospace;
-  --jp-font: "DotGothic16", var(--block-font), sans-serif;
-  --navy-950: #061a37;
-  --navy-900: #0d2f5c;
-  --navy-800: #163f77;
-  --navy-700: #2c6098;
+  --jp-font: "MaruMonica", sans-serif;
+  --jp-weight: 400;
+  --block-weight: 400;
+  --navy-950: #063669;
+  --navy-900: #075b9f;
+  --navy-800: #0a4f91;
+  --navy-700: #2a7fba;
   --cyan: #8fe0f2;
-  --cyan-dim: #4c8fae;
+  --cyan-dim: #62b6d3;
   --amber: #f0a94a;
   --asset-shadow: 4px 5px 0 rgba(30, 55, 105, 0.28);
 
@@ -42,14 +36,19 @@
   min-height: 100%;
   background: linear-gradient(180deg, #d3e2fb 0%, #b9cdf6 55%, #cfe0fb 100%);
   font-family: var(--jp-font);
+  font-weight: var(--jp-weight);
 }
 
-.fontMaruMonica {
-  --jp-font: "MaruMonicaSubset", "DotGothic16", sans-serif;
+.fontUnified {
+  --block-font: "MaruMonica", sans-serif;
 }
 
-.fontPixelMplus {
-  --jp-font: "PixelMplus12Subset", "DotGothic16", sans-serif;
+.fontBold {
+  --jp-weight: 700;
+}
+
+.fontUnified.fontBold {
+  --block-weight: 700;
 }
 
 /* ---------- フォント比較 ---------- */
@@ -63,7 +62,7 @@
   gap: 7px;
   padding: 9px 10px 10px;
   border-bottom: 2px solid #061a37;
-  background: rgba(13, 47, 92, 0.96);
+  background: rgba(7, 91, 159, 0.97);
   color: #fff;
 }
 
@@ -87,7 +86,7 @@
 
 .fontOptions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
 }
 
@@ -98,7 +97,7 @@
   gap: 2px;
   padding: 6px 5px;
   border: 2px solid #061a37;
-  background: #163f77;
+  background: #0a4f91;
   color: #cfe4f7;
   font-family: "DotGothic16", sans-serif;
   font-size: 10px;
@@ -116,7 +115,7 @@
 
 .fontOptionOn {
   border-color: #f0a94a;
-  background: #2c6098;
+  background: #2a7fba;
   color: #fff;
   box-shadow: inset 0 -3px 0 #f0a94a;
 }
@@ -272,7 +271,7 @@
   color: #fff;
   font-family: var(--block-font);
   font-size: 32px;
-  font-weight: 400;
+  font-weight: var(--block-weight);
   line-height: 1.05;
   letter-spacing: 0.02em;
   text-shadow: 2px 2px 0 rgba(4, 15, 32, 0.6);
@@ -304,7 +303,7 @@
   margin: 8px 0 0;
   color: #a9c8e8;
   font-family: var(--jp-font);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.06em;
 }
 
@@ -333,7 +332,7 @@
     var(--navy-800);
   color: #fff;
   font-family: var(--jp-font);
-  font-size: 16px;
+  font-size: 17px;
   text-align: left;
   cursor: pointer;
 }
@@ -400,7 +399,7 @@
   border-bottom: 1px solid var(--navy-700);
   color: #dbeaf9;
   font-family: var(--jp-font);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .row:last-child {
@@ -415,6 +414,7 @@
   color: #fff;
   font-family: var(--block-font);
   font-size: 19px;
+  font-weight: var(--block-weight);
   font-variant-numeric: tabular-nums;
 }
 
@@ -428,7 +428,7 @@
 .fieldLabel {
   color: #a9c8e8;
   font-family: var(--jp-font);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .input {
@@ -437,7 +437,7 @@
   background: var(--navy-950);
   color: #fff;
   font-family: var(--jp-font);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .actions {
@@ -480,7 +480,7 @@
   width: 100%;
   border-collapse: collapse;
   font-family: var(--jp-font);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .table th {
@@ -489,7 +489,7 @@
   color: #8fb6dc;
   font-family: var(--block-font);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: var(--block-weight);
   text-align: left;
   letter-spacing: 0.04em;
 }
@@ -504,11 +504,13 @@
   color: var(--amber);
   font-family: var(--block-font);
   font-size: 15px;
+  font-weight: var(--block-weight);
 }
 
 .num {
   font-family: var(--block-font);
   font-size: 15px;
+  font-weight: var(--block-weight);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
