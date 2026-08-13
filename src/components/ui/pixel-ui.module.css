@@ -25,6 +25,10 @@
   font-family: var(--jp-font);
 }
 
+.sceneEnglish {
+  --jp-font: var(--block-font);
+}
+
 .backdrop {
   position: absolute;
   inset: 0;
