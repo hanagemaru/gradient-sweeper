@@ -1,0 +1,19 @@
+/*
+ * 破片を描くキャンバス。盤面（.game-board）に重ねる。
+ *
+ * 上下左右に 12px はみ出させているのは、破片が全方向へ飛ぶため、
+ * 外周のセルから飛んだぶんが盤面の縁で切れないようにするため。
+ * この値は useTileBurst.ts の BURST_BLEED と揃えること。
+ *
+ * z-index は雪タイル（3）と旗（4）より上。クリックは盤面に通す。
+ */
+.canvas {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  z-index: 5;
+  width: calc(100% + 24px);
+  height: calc(100% + 24px);
+  image-rendering: pixelated;
+  pointer-events: none;
+}

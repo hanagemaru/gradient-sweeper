@@ -3,6 +3,7 @@
 import { useRef, useCallback, useEffect } from "react";
 import { Board as BoardType, GRID_SIZE } from "@/types/game";
 import { Cell } from "./Cell";
+import { TileBurst } from "./TileBurst";
 import { useSwipe } from "@/hooks/useSwipe";
 
 interface BoardProps {
@@ -108,7 +109,7 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
   return (
     <div
       ref={boardRef}
-      className="game-board inline-grid touch-none isolate"
+      className="game-board relative inline-grid touch-none isolate"
       style={{
         gridTemplateColumns: `repeat(${GRID_SIZE}, var(--cell-size))`,
         gap: "var(--gap)",
@@ -122,6 +123,12 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
           <Cell key={`${rowIndex}-${colIndex}`} cell={cell} row={rowIndex} col={colIndex} showBomb={showAllBombs && cell.hasBomb} masked={maskCells} />
         ))
       )}
+
+      {/*
+        開けたマスの破片。セルごとに要素を足さず、盤面に重ねた canvas 1枚に描く。
+        絶対配置なのでグリッドの配置には影響しない。
+      */}
+      <TileBurst board={board} />
     </div>
   );
 }
