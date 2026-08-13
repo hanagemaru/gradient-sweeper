@@ -30,13 +30,14 @@ const positions = shuffleArray(
 - `src/lib/game-logic.ts`
 - `src/hooks/useGame.ts`
 - `src/types/game.ts`（必要な場合のみ）
-- 新規のテストファイル
+- `src/lib/game-logic.test.ts` および新規のテストファイル
 
 ## 触ってはいけないファイル
 
 - `src/components/game/` 配下 — レーンAの担当
 - `src/app/api/` 配下, `src/lib/score.ts` — レーンCの担当
 - `src/lib/ice-colors.ts`, `src/lib/tile-masks.ts` — 色と下絵の設計は確定済み
+- `package.json`, `package-lock.json` — 必要な依存はすでに入っている
 - `docs/PROJECT-STATUS.md`, `docs/ROADMAP.md` — 全レーン共通で編集禁止
 
 ## やること
@@ -87,7 +88,10 @@ const positions = shuffleArray(
 
 ## テスト
 
-**このタスクは自前でテストを書くこと。** 触るのがテスト0件の最重要ファイルのため。
+**このタスクは自前でテストを書くこと。** 触るのが最も重要なロジックのため。
+
+vitest は導入済みで `npm test` で走る。`src/lib/game-logic.test.ts` に既存のテストがあるので、
+そこに足すか別ファイルを作る。**`package.json` は触らないこと。**
 レーンD（テスト整備）の完了は待たなくてよい。
 
 最低限これらを確認する。
