@@ -16,7 +16,18 @@ import { proposedColor } from "@/lib/ice-colors";
 import { motifAsset } from "@/lib/motifs";
 import styles from "./crystal-field.module.css";
 
-const CRYSTAL_BASE = "/assets/frostbound/crystals-v1";
+const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
+
+/**
+ * 4クラスターの実寸。crystals-v2 の各PNGは表示サイズと1対1
+ * （1アートピクセル = 1 CSSピクセル）で作られているため、ここで拡大縮小しない。
+ */
+const CRYSTAL_SIZES = {
+  "cluster-large": { width: 130, height: 110 },
+  "cluster-medium": { width: 110, height: 90 },
+  "cluster-wide": { width: 120, height: 80 },
+  "accent-small": { width: 40, height: 40 },
+} as const;
 
 function cx(...names: Array<string | false | undefined>): string {
   return names.filter(Boolean).join(" ");
@@ -65,14 +76,17 @@ function Crystal({
   name,
   className,
 }: {
-  name: string;
+  name: keyof typeof CRYSTAL_SIZES;
   className?: string;
 }) {
+  const { width, height } = CRYSTAL_SIZES[name];
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={`${CRYSTAL_BASE}/${name}.png`}
       alt=""
+      width={width}
+      height={height}
       className={cx(styles.crystal, className)}
       draggable={false}
     />
@@ -94,14 +108,10 @@ export function Scene({ children }: { children: ReactNode }) {
         <Motif name="rect-tall" width={90} height={150} tone="snow" className={styles.mBottomRight} />
         <Motif name="square-sm" width={64} height={64} tone="blue" className={styles.mMidRight} />
 
-        <Crystal name="pyramid-blue" className={styles.cTopRight} />
-        <Crystal name="prism-blue" className={styles.cTopRight2} />
-        <Crystal name="accent-cube-red" className={styles.cTopRight3} />
-        <Crystal name="needle-ice" className={styles.cBottomLeft} />
-        <Crystal name="shard-diagonal" className={styles.cBottomLeft2} />
-        <Crystal name="chunk-white" className={styles.cBottomRight} />
-        <Crystal name="pyramid-blue" className={styles.cBottomRight2} />
-        <Crystal name="plate-purple" className={styles.cMidLeft} />
+        <Crystal name="cluster-large" className={styles.cLarge} />
+        <Crystal name="cluster-medium" className={styles.cMedium} />
+        <Crystal name="cluster-wide" className={styles.cWide} />
+        <Crystal name="accent-small" className={styles.cAccent} />
       </div>
 
       <div className={styles.inner}>{children}</div>

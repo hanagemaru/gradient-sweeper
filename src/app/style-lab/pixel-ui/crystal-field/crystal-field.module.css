@@ -72,8 +72,8 @@
 }
 
 .mBottomLeft {
-  bottom: 40px;
-  left: -18px;
+  bottom: 6px;
+  left: -26px;
 }
 
 .mBottomRight {
@@ -86,53 +86,29 @@
   right: 6px;
 }
 
-/* クリスタルの配置。参考画像に合わせて右上と左下・右下に群を作る */
-.cTopRight {
-  top: 4px;
-  right: 18px;
-  width: 58px;
+/*
+ * クリスタルの配置。crystals-v2 の4クラスターはそれぞれ表示サイズそのままの
+ * PNG（1アートピクセル=1CSSピクセル）なので、ここでは width/height を指定しない。
+ * Crystal コンポーネント側の width/height 属性が実寸を担保する。
+ */
+.cLarge {
+  top: 6px;
+  right: 8px;
 }
 
-.cTopRight2 {
-  top: 18px;
-  right: 66px;
-  width: 30px;
+.cMedium {
+  bottom: 140px;
+  left: -8px;
 }
 
-.cTopRight3 {
-  top: 64px;
-  right: 96px;
-  width: 22px;
+.cWide {
+  right: -12px;
+  bottom: 190px;
 }
 
-.cBottomLeft {
-  bottom: 96px;
-  left: 8px;
-  width: 16px;
-}
-
-.cBottomLeft2 {
-  bottom: 44px;
-  left: -6px;
-  width: 58px;
-}
-
-.cBottomRight {
-  right: -10px;
-  bottom: 168px;
-  width: 62px;
-}
-
-.cBottomRight2 {
-  right: 24px;
-  bottom: 130px;
-  width: 42px;
-}
-
-.cMidLeft {
-  top: 30%;
-  left: -18px;
-  width: 60px;
+.cAccent {
+  top: 40%;
+  left: 10px;
 }
 
 /* ---------- 前景 ---------- */
