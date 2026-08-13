@@ -1,0 +1,506 @@
+/*
+ * CRYSTAL FIELD 案。
+ *
+ * 添付の参考画像を基準に、既存アセットと同じ絵の文法（縁1px、粒、面取り）で
+ * 背景装飾を組み合わせている。文章指示と画像が食い違う場合は画像を優先した。
+ *
+ * フォント: 英数字と数字は VT323（レイアウト全体で既に読み込み済み）、
+ * 日本語は DotGothic16。VT323 は日本語グリフを持たないため。
+ */
+
+.screen {
+  --block-font: "VT323", ui-monospace, monospace;
+  --jp-font: "DotGothic16", var(--block-font), sans-serif;
+  --navy-950: #061a37;
+  --navy-900: #0d2f5c;
+  --navy-800: #163f77;
+  --navy-700: #2c6098;
+  --cyan: #8fe0f2;
+  --cyan-dim: #4c8fae;
+  --amber: #f0a94a;
+
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 100%;
+  background: linear-gradient(180deg, #d3e2fb 0%, #b9cdf6 55%, #cfe0fb 100%);
+  font-family: var(--jp-font);
+}
+
+/* ---------- 背景 ---------- */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.motif {
+  position: absolute;
+  display: block;
+  isolation: isolate;
+  filter: drop-shadow(5px 5px 0 rgba(30, 55, 105, 0.22));
+}
+
+.motifTexture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.crystal {
+  position: absolute;
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 5px 0 rgba(30, 55, 105, 0.3));
+  pointer-events: none;
+}
+
+/* セルモチーフの配置。パネルの背後へ一部が続くよう、パネル領域に軽くかかる座標にしている */
+.mTopLeft {
+  top: -14px;
+  left: -14px;
+}
+
+.mRightUpper {
+  top: 34px;
+  right: -30px;
+}
+
+.mBottomLeft {
+  bottom: 40px;
+  left: -18px;
+}
+
+.mBottomRight {
+  right: -20px;
+  bottom: -30px;
+}
+
+.mMidRight {
+  top: 46%;
+  right: 6px;
+}
+
+/* クリスタルの配置。参考画像に合わせて右上と左下・右下に群を作る */
+.cTopRight {
+  top: 4px;
+  right: 18px;
+  width: 58px;
+}
+
+.cTopRight2 {
+  top: 18px;
+  right: 66px;
+  width: 30px;
+}
+
+.cTopRight3 {
+  top: 64px;
+  right: 96px;
+  width: 22px;
+}
+
+.cBottomLeft {
+  bottom: 96px;
+  left: 8px;
+  width: 16px;
+}
+
+.cBottomLeft2 {
+  bottom: 44px;
+  left: -6px;
+  width: 58px;
+}
+
+.cBottomRight {
+  right: -10px;
+  bottom: 168px;
+  width: 62px;
+}
+
+.cBottomRight2 {
+  right: 24px;
+  bottom: 130px;
+  width: 42px;
+}
+
+.cMidLeft {
+  top: 30%;
+  left: -18px;
+  width: 60px;
+}
+
+/* ---------- 前景 ---------- */
+
+.inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 18px 16px 32px;
+}
+
+.panelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  max-width: 340px;
+  margin-top: 42vh;
+  transform: translateY(-50%);
+}
+
+.panel {
+  position: relative;
+  width: 100%;
+  padding: 20px 18px 18px;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid var(--cyan);
+  outline-offset: -6px;
+  background: var(--navy-900);
+  box-shadow:
+    inset 0 0 0 1px var(--navy-700),
+    inset 0 -6px 0 rgba(4, 15, 32, 0.35),
+    0 6px 0 rgba(15, 35, 70, 0.35),
+    6px 12px 0 rgba(20, 45, 90, 0.18);
+}
+
+/* パネルの角の切り欠き。参考画像の角の段差を再現する */
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  background: var(--navy-950);
+}
+
+.panel::before {
+  top: -3px;
+  left: -3px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.panel::after {
+  right: -3px;
+  bottom: -3px;
+  clip-path: polygon(100% 100%, 100% 0, 0 100%);
+}
+
+/* ---------- タイトル ---------- */
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  color: #fff;
+  font-family: var(--block-font);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-shadow: 2px 2px 0 rgba(4, 15, 32, 0.6);
+  text-wrap: balance;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 0;
+  border-top: 2px dashed var(--cyan-dim);
+}
+
+.dividerDot {
+  width: 5px;
+  height: 5px;
+  background: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(143, 224, 242, 0.18);
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #a9c8e8;
+  font-family: var(--jp-font);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- メニュー ---------- */
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menuBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 2px solid var(--navy-950);
+  outline: 1px solid var(--cyan-dim);
+  outline-offset: -4px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(143, 224, 242, 0.04) 0 1px,
+      transparent 1px 6px
+    ),
+    var(--navy-800);
+  color: #fff;
+  font-family: var(--jp-font);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuBtn:hover {
+  outline-color: var(--cyan);
+}
+
+.menuIcon {
+  color: var(--amber);
+  font-family: var(--block-font);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.menuLabel {
+  flex: 1;
+}
+
+.menuMeta {
+  color: #8fb6dc;
+  font-family: var(--block-font);
+  font-size: 15px;
+}
+
+.ghostBtn {
+  padding: 11px 14px;
+  border: 2px solid var(--navy-700);
+  background: transparent;
+  color: #bcd6f0;
+  font-family: var(--jp-font);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.backLink {
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: 2px solid var(--navy-700);
+  background: var(--navy-800);
+  color: #cfe4f7;
+  font-family: var(--block-font);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* ---------- リザルト ---------- */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--navy-700);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--navy-700);
+  color: #dbeaf9;
+  font-family: var(--jp-font);
+  font-size: 13px;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowMain {
+  background: rgba(143, 224, 242, 0.08);
+}
+
+.rowValue {
+  color: #fff;
+  font-family: var(--block-font);
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.fieldLabel {
+  color: #a9c8e8;
+  font-family: var(--jp-font);
+  font-size: 12px;
+}
+
+.input {
+  padding: 9px 10px;
+  border: 2px solid var(--navy-700);
+  background: var(--navy-950);
+  color: #fff;
+  font-family: var(--jp-font);
+  font-size: 15px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---------- ランキング ---------- */
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border: 1px solid var(--navy-700);
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 6px;
+  border: none;
+  background: var(--navy-950);
+  color: #8fb6dc;
+  font-family: var(--jp-font);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tabOn {
+  background: var(--navy-700);
+  color: #fff;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--jp-font);
+  font-size: 13px;
+}
+
+.table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--navy-700);
+  color: #8fb6dc;
+  font-family: var(--block-font);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  letter-spacing: 0.04em;
+}
+
+.table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(44, 96, 152, 0.4);
+  color: #dbeaf9;
+}
+
+.medal {
+  color: var(--amber);
+  font-family: var(--block-font);
+  font-size: 15px;
+}
+
+.num {
+  font-family: var(--block-font);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---------- 言語選択 ---------- */
+
+/*
+ * 固定幅レイアウト。矢印の有無で文字位置やボックス幅が動かないよう、
+ * 矢印スロットの幅を常に確保しておく（表示は透明な半角スペースで埋める）。
+ */
+.langGroup {
+  display: flex;
+  align-items: center;
+  padding: 7px 12px;
+  border: 2px solid var(--navy-950);
+  outline: 1px solid var(--cyan-dim);
+  outline-offset: -3px;
+  background: var(--navy-900);
+}
+
+.langOption {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: #7ea3c8;
+  font-family: var(--block-font);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.langOn {
+  color: #fff;
+}
+
+.langArrow {
+  display: inline-block;
+  width: 10px;
+  color: var(--amber);
+  font-size: 12px;
+  text-align: center;
+}
+
+.langText {
+  min-width: 20px;
+}
+
+.langDivider {
+  margin: 0 2px;
+  color: var(--navy-700);
+  font-family: var(--block-font);
+  font-size: 16px;
+}
