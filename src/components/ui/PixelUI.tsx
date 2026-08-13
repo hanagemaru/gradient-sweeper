@@ -24,7 +24,14 @@ const WALLPAPER_ASSETS = [
   { base: CRYSTAL_BASE, name: "cluster-large" },
 ] as const;
 
-const WALLPAPER_ITEM_COUNT = 48;
+const WALLPAPER_SEQUENCE = [
+  0, 5, 2, 7, 3, 1, 6, 4,
+  3, 7, 0, 5, 2, 6, 4, 1,
+  6, 1, 4, 0, 7, 2, 5, 3,
+  2, 4, 7, 1, 5, 3, 0, 6,
+  5, 0, 3, 6, 1, 4, 7, 2,
+  7, 2, 6, 4, 0, 5, 1, 3,
+] as const;
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
@@ -54,8 +61,8 @@ function PixelBackdrop() {
   return (
     <div className={styles.backdrop} aria-hidden="true">
       <div className={styles.wallpaperGrid}>
-        {Array.from({ length: WALLPAPER_ITEM_COUNT }, (_, index) => {
-          const asset = WALLPAPER_ASSETS[index % WALLPAPER_ASSETS.length];
+        {WALLPAPER_SEQUENCE.map((assetIndex, index) => {
+          const asset = WALLPAPER_ASSETS[assetIndex];
           return (
             <DecorativeImage
               key={`${asset.name}-${index}`}
