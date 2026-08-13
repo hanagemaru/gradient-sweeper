@@ -1,13 +1,29 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import Link from "next/link";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/i18n/useI18n";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/Icon";
 import { GameMode, Difficulty, LeaderboardEntry } from "@/types/game";
 import { formatTime } from "@/hooks/useTimer";
+import {
+  PixelButton,
+  PixelButtonGroup,
+  PixelMessage,
+  PixelPanel,
+  PixelScene,
+  PixelTable,
+  PixelTabs,
+} from "@/components/ui/PixelUI";
+
+function RankingLoading() {
+  return (
+    <PixelScene width="wide">
+      <PixelPanel title="RANKING">
+        <PixelMessage>Loading...</PixelMessage>
+      </PixelPanel>
+    </PixelScene>
+  );
+}
 
 function RankingContent() {
   const searchParams = useSearchParams();
@@ -29,12 +45,10 @@ function RankingContent() {
 
       try {
         const params = new URLSearchParams({ mode });
-        if (mode === "ta") {
-          params.set("difficulty", difficulty);
-        }
+        if (mode === "ta") params.set("difficulty", difficulty);
 
-        const res = await fetch(`/api/leaderboard?${params.toString()}`);
-        const json = await res.json();
+        const response = await fetch(`/api/leaderboard?${params.toString()}`);
+        const json = await response.json();
 
         if (json.success) {
           setData(json.data);
@@ -52,113 +66,94 @@ function RankingContent() {
   }, [mode, difficulty]);
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4">
-      <h1 className="text-2xl font-bold mb-6">{t("ranking.title")}</h1>
+    <PixelScene width="wide">
+      <PixelPanel title="RANKING">
+        <PixelTabs>
+          <PixelButton
+            variant={mode === "endless" ? "primary" : "tab"}
+            size="sm"
+            onClick={() => setMode("endless")}
+          >
+            {t("ranking.endless")}
+          </PixelButton>
+          <PixelButton
+            variant={mode === "ta" ? "primary" : "tab"}
+            size="sm"
+            onClick={() => setMode("ta")}
+          >
+            {t("ranking.timeAttack")}
+          </PixelButton>
+        </PixelTabs>
 
-      {/* モード切替 */}
-      <div className="flex gap-2 mb-4">
-        <Button
-          variant={mode === "endless" ? "primary" : "ghost"}
-          size="sm"
-          onClick={() => setMode("endless")}
-        >
-          {t("ranking.endless")}
-        </Button>
-        <Button
-          variant={mode === "ta" ? "primary" : "ghost"}
-          size="sm"
-          onClick={() => setMode("ta")}
-        >
-          {t("ranking.timeAttack")}
-        </Button>
-      </div>
+        {mode === "ta" && (
+          <PixelTabs>
+            {(["easy", "mid", "hard"] as Difficulty[]).map((item) => (
+              <PixelButton
+                key={item}
+                variant={difficulty === item ? "secondary" : "tab"}
+                size="sm"
+                onClick={() => setDifficulty(item)}
+              >
+                {t(`ta.${item}` as const)}
+              </PixelButton>
+            ))}
+          </PixelTabs>
+        )}
 
-      {/* 難易度切替（TA時のみ） */}
-      {mode === "ta" && (
-        <div className="flex gap-2 mb-4">
-          {(["easy", "mid", "hard"] as Difficulty[]).map((d) => (
-            <Button
-              key={d}
-              variant={difficulty === d ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setDifficulty(d)}
-            >
-              {t(`ta.${d}` as const)}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      {/* ランキングテーブル */}
-      <div className="w-full max-w-md bg-gray-900 rounded-xl overflow-hidden shadow-lg">
         {loading ? (
-          <div className="p-8 text-center text-gray-400">
-            {t("common.loading")}
-          </div>
+          <PixelMessage>{t("common.loading")}</PixelMessage>
         ) : error ? (
-          <div className="p-8 text-center text-red-400">{error}</div>
+          <PixelMessage error>{error}</PixelMessage>
         ) : data.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
-            {t("ranking.noData")}
-          </div>
+          <PixelMessage>{t("ranking.noData")}</PixelMessage>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-800">
+          <PixelTable>
+            <thead>
               <tr>
-                <th className="py-3 px-4 text-left text-gray-100">{t("ranking.rank")}</th>
-                <th className="py-3 px-4 text-left text-gray-100">{t("ranking.name")}</th>
-                <th className="py-3 px-4 text-right text-gray-100">
+                <th scope="col">{t("ranking.rank")}</th>
+                <th scope="col">{t("ranking.name")}</th>
+                <th scope="col" data-numeric="true">
                   {mode === "endless" ? t("ranking.score") : t("ranking.finalTime")}
                 </th>
                 {mode === "endless" && (
-                  <th className="py-3 px-4 text-right text-gray-100">{t("ranking.level")}</th>
+                  <th scope="col" data-numeric="true">
+                    {t("ranking.level")}
+                  </th>
                 )}
               </tr>
             </thead>
             <tbody>
               {data.map((entry) => (
-                <tr key={entry.rank} className="border-t border-gray-600">
-                  <td className="py-3 px-4 text-white">
-                    {entry.rank <= 3 ? (
-                      <span className="text-yellow-400">#{entry.rank}</span>
-                    ) : (
-                      `#${entry.rank}`
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-white truncate max-w-[100px]">
-                    {entry.player_name || "Anonymous"}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-white">
+                <tr key={entry.rank}>
+                  <td data-medal={entry.rank <= 3}>#{entry.rank}</td>
+                  <td>{entry.player_name || "Anonymous"}</td>
+                  <td data-numeric="true">
                     {mode === "endless"
                       ? entry.score.toLocaleString()
                       : formatTime(entry.score)}
                   </td>
                   {mode === "endless" && (
-                    <td className="py-3 px-4 text-right font-semibold text-white">
-                      {entry.endless_level}
-                    </td>
+                    <td data-numeric="true">{entry.endless_level}</td>
                   )}
                 </tr>
               ))}
             </tbody>
-          </table>
+          </PixelTable>
         )}
-      </div>
 
-      {/* 戻るボタン */}
-      <Link href="/" className="mt-6">
-        <Button variant="ghost">
-          <Icon name="back" />
-          {t("ranking.back")}
-        </Button>
-      </Link>
-    </main>
+        <PixelButtonGroup>
+          <PixelButton href="/" variant="ghost" block leading="◀">
+            {t("ranking.back")}
+          </PixelButton>
+        </PixelButtonGroup>
+      </PixelPanel>
+    </PixelScene>
   );
 }
 
 export default function RankingPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+    <Suspense fallback={<RankingLoading />}>
       <RankingContent />
     </Suspense>
   );

@@ -1,0 +1,18 @@
+These subset fonts are included only for the CRYSTAL FIELD style-lab comparison.
+
+x12y16pxMaruMonica, Version 2025-09-03
+Copyright (c) 2021-2025 hicc / 患者長ひっく
+Source and license: https://hicchicc.github.io/00ff/
+The distributor permits use, embedding, modification, and redistribution under
+the original license shown on the source page. The font itself may not be sold.
+
+PixelMplus12 Regular
+Copyright (C) 2013 itouhiro
+Copyright (C) 2002-2013 M+ FONTS PROJECT
+Source: https://github.com/itouhiro/PixelMplus
+
+M+ FONT LICENSE
+These fonts are free software.
+Unlimited permission is granted to use, copy, and distribute them, with or
+without modification, either commercially or noncommercially.
+THESE FONTS ARE PROVIDED "AS IS" WITHOUT WARRANTY.

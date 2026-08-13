@@ -1,0 +1,207 @@
+/*
+ * 背景モチーフの検証ページ。
+ *
+ * モチーフの描き方は盤面のセルとまったく同じ。
+ * 背景色がパレットの色で、その上にグレースケールのマスクを overlay で重ねる。
+ * 形はマスクのアルファから mask-image で切り出す。
+ */
+
+.page {
+  --block-font: "VT323", ui-monospace, monospace;
+  --navy-950: #061a37;
+  --navy-900: #0a2851;
+  --navy-800: #123f72;
+  --navy-700: #2b6598;
+
+  min-height: 100vh;
+  padding: 12px 8px 48px;
+  color: #f7fcff;
+  background: linear-gradient(180deg, #cfdcfa 0%, #b9caf3 50%, #cbd9f8 100%);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100%, 820px);
+  margin: 0 auto;
+}
+
+.panel {
+  padding: 14px 13px 18px;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid #6ca6d2;
+  background: var(--navy-900);
+  box-shadow:
+    inset 0 0 0 2px var(--navy-700),
+    inset 0 -5px 0 #04142d,
+    0 4px 0 #0a3968;
+}
+
+.panel h1 {
+  margin: 0 0 8px;
+  font-family: var(--block-font);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-family: var(--block-font);
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+.note {
+  margin: 0 0 16px;
+  color: #b7d8ef;
+  font-size: 12.5px;
+  line-height: 1.85;
+}
+
+.note strong {
+  color: #f2f9ff;
+}
+
+.note code {
+  padding: 0 4px;
+  border: 1px solid var(--navy-700);
+  background: var(--navy-950);
+  color: #9fd4f5;
+  font-family: var(--block-font);
+  font-size: 15px;
+}
+
+/* ---------- モチーフ本体 ---------- */
+
+/*
+ * 形はマスクのアルファから切り出す。
+ * mask-size を指定せず自然サイズで使うので、拡大縮小が起きず輪郭が鈍らない。
+ */
+.motif {
+  position: relative;
+  display: block;
+  flex: none;
+  isolation: isolate;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  filter: drop-shadow(6px 6px 0 rgba(41, 66, 120, 0.28));
+}
+
+.motifTexture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* ---------- 比較用の盤面タイル ---------- */
+
+.tile {
+  position: relative;
+  display: block;
+  flex: none;
+  isolation: isolate;
+}
+
+.tileTexture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* ---------- レイアウト ---------- */
+
+.compareRow,
+.toneRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.compareItem,
+.shapeItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.compareItem > span,
+.shapeItem > span {
+  color: #8fc0e2;
+  font-family: var(--block-font);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+
+.swatchBox {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+/* 等倍のまま隣接させて、縁の太さと粒の細かさを直接見比べる */
+.adjacentRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: linear-gradient(180deg, #cfdcfa 0%, #bccbf4 100%);
+  overflow-x: auto;
+}
+
+.shapeGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  align-items: flex-end;
+}
+
+/* ---------- 重なりの確認 ---------- */
+
+.scene {
+  position: relative;
+  overflow: hidden;
+  height: 340px;
+  border: 2px solid var(--navy-950);
+  background: linear-gradient(180deg, #cfdcfa 0%, #bccbf4 100%);
+}
+
+.place {
+  position: absolute;
+  display: block;
+}
+
+/* ---------- footer ---------- */
+
+.links {
+  display: flex;
+  gap: 8px;
+}
+
+.backLink {
+  padding: 7px 13px;
+  border: 2px solid var(--navy-950);
+  background: var(--navy-800);
+  color: #dff2ff;
+  font-family: var(--block-font);
+  font-size: 16px;
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--navy-700);
+}
