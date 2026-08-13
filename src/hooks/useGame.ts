@@ -26,6 +26,8 @@ import {
   checkWin,
   resetExplodedCell,
   cloneBoard,
+  isFirstClick,
+  getFirstClickExclusions,
 } from "@/lib/game-logic";
 
 function createInitialState(mode: GameMode, difficulty?: Difficulty): GameState {
@@ -75,7 +77,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      const newBoard = cloneBoard(state.board);
+      // その盤面の初手なら、タップしたマス周辺を除外して盤面を作り直してから開く
+      const newBoard = isFirstClick(state.board)
+        ? generateBoard(
+            state.bombCount,
+            getFirstClickExclusions(action.row, action.col, state.bombCount)
+          )
+        : cloneBoard(state.board);
       const result = revealCell(newBoard, action.row, action.col);
 
       if (result.type === "noop") {
