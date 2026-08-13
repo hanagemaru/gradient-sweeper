@@ -51,8 +51,14 @@
   left: 48%;
 }
 
+/*
+ * cluster-large（top:16px / 高さ110px）の下端126pxより下から始める。
+ * top:92px だとL字パネルの平らな面がクリスタルの背後で重なり、
+ * パネル上端（clamp(92px, 15vh, 132px)）より上に出た帯が
+ * 「結晶の後ろの大きな青い箱」として見えてしまう。
+ */
 .mRightUpper {
-  top: 92px;
+  top: 152px;
   right: -62px;
 }
 

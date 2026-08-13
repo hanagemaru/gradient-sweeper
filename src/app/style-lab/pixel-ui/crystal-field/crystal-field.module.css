@@ -153,8 +153,9 @@
   left: 48%;
 }
 
+/* 本番（src/components/ui/pixel-ui.module.css）と同じ理由で下へ逃がす */
 .mRightUpper {
-  top: 92px;
+  top: 152px;
   right: -62px;
 }
 
