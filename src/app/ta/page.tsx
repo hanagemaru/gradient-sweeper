@@ -15,7 +15,7 @@ export default function TimeAttackPage() {
   const { t } = useI18n();
 
   return (
-    <PixelScene>
+    <PixelScene width="menu">
       <PixelPanel title="TIME ATTACK" subtitle={t("ta.title")}>
         <PixelButtonGroup>
           {DIFFICULTIES.map((key) => (

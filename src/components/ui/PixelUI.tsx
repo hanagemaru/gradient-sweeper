@@ -62,7 +62,7 @@ export function PixelScene({
 }: {
   children: ReactNode;
   languageToggle?: boolean;
-  width?: "normal" | "wide";
+  width?: "menu" | "normal" | "wide";
 }) {
   const { language } = useI18n();
 
@@ -70,7 +70,13 @@ export function PixelScene({
     <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
       <PixelBackdrop />
       <main className={styles.content}>
-        <div className={cx(styles.stack, width === "wide" && styles.stackWide)}>
+        <div
+          className={cx(
+            styles.stack,
+            width === "menu" && styles.stackMenu,
+            width === "wide" && styles.stackWide,
+          )}
+        >
           {children}
           {languageToggle && <PixelLanguageToggle />}
         </div>

@@ -12,7 +12,7 @@ export default function Home() {
   const { t } = useI18n();
 
   return (
-    <PixelScene languageToggle>
+    <PixelScene languageToggle width="menu">
       <PixelPanel title="GRADIENT SWEEPER">
         <PixelButtonGroup>
           <PixelButton href="/game?mode=endless" size="lg" block leading="▶">

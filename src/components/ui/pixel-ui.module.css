@@ -114,6 +114,10 @@
   gap: 14px;
 }
 
+.stackMenu {
+  max-width: 320px;
+}
+
 .stackWide {
   max-width: 440px;
 }
@@ -204,7 +208,7 @@
   margin: 9px 0 0;
   color: #a9c8e8;
   font-family: var(--jp-font);
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.06em;
 }
 
@@ -286,17 +290,17 @@
 
 .button_sm {
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .button_md {
   padding: 11px 13px;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .button_lg {
   padding: 14px 15px;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .buttonBlock {
@@ -313,6 +317,7 @@
 .buttonLabel {
   min-width: 0;
   flex: 1;
+  line-height: 1.2;
   text-align: center;
 }
 
@@ -393,7 +398,7 @@
   padding: 9px 12px;
   border-bottom: 1px solid var(--navy-700);
   color: #dbeaf9;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .stat:last-child {
@@ -422,7 +427,7 @@
   gap: 7px;
   margin-bottom: 14px;
   color: #a9c8e8;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .field small {
@@ -437,7 +442,7 @@
   background: var(--navy-950);
   color: #fff;
   font-family: var(--jp-font);
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .input::placeholder {
@@ -454,7 +459,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .table th {
