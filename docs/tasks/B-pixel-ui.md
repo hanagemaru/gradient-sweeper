@@ -9,10 +9,70 @@
 グレイシャーテーマが当たっているのは `/game` だけで、
 それ以外は汎用的な Tailwind グラデーションのまま。世界観が分断されている。
 
-フォントは VT323 が全ページに適用済みで、この方向性は維持する。
+採用するフォント構成は、日本語がマルモニカ Regular、英語・数字が VT323。
+太字は使用しない。
 
 **着手前にユーザーが方向性を選ぶ必要がある。**
 勝手に決めず、案を複数出して選んでもらうこと。
+
+## 現在の決定と引き継ぎ（PR #10）
+
+- 採用方向は `CRYSTAL FIELD`。
+- メニューパネルは中明度の青。背景とは独立した CSS レイヤーにする。
+- 背景はメニューパネルの位置を避けず、総柄として構成する。
+- セルやクリスタルは回転・反転しない。ライティング方向を保持する。
+- セル同士、およびセルとクリスタルを重ねない。
+- 背景ワールド内ではモチーフを固定ピクセルサイズで配置し、viewport に合わせて
+  全体を縮小しない。大きな画面では見える範囲を広げる。
+- サイズ差は標準から 2〜3 倍程度まで。`giant-*`（4〜8倍相当）は不採用。
+- ランダム配置や BSP の5シード案は不採用。各モチーフの画像パス、x/y 座標、
+  幅、高さを配置定義へ明示する固定配置方式で作る。
+- 最終背景は、画面より大きい1つの背景ワールドを作り、スマホ・タブレット・PCでは
+  カメラのように表示範囲を切り替える。`background-size: cover` は使わない。
+- 背景ワールドの全体確認PNGと、各画面比率の切り取り確認画像も用意する。
+
+現在のローカル作業で作られた BSP・5シード背景比較は不採用の実験であり、
+PR #10 の引き継ぎチェックポイントには含めない。
+
+## 背景用セル画像の管理
+
+手作業で修正する元画像と、自動生成される派生画像を混同しないこと。
+
+### 手作業で修正する元画像
+
+- `public/assets/frostbound/motifs-v2/cell-covered-large.png`
+- `public/assets/frostbound/motifs-v2/cell-covered-l.png`
+- `public/assets/frostbound/motifs-v2/cell-covered-l-rotated.png`
+- `public/assets/frostbound/motifs-v2/l-panel-blue.png`
+- `public/assets/frostbound/motifs-v2/cell-open-blue-l-rotated.png`
+- `public/assets/frostbound/motifs-v2/cell-open-blue-step.png`
+- `public/assets/frostbound/motifs-v2/open-surface-master-blue.png`
+
+これらのPNGを手修正した後に生成スクリプトを実行すると、修正内容を派生画像へ反映できる。
+ただし `scripts/generate-open-surface-master.mjs` は
+`open-surface-master-blue.png` 自体を作り直す初期化用スクリプトなので、手修正後は実行しない。
+
+### 自動生成される画像
+
+- `public/assets/frostbound/cell-autotile-v2/covered-atlas/`
+- `public/assets/frostbound/cell-autotile-v2/open-atlas/`
+- `public/assets/frostbound/cell-autotile-v2/covered-*.png`
+- `public/assets/frostbound/cell-autotile-v2/open-blue-*.png`
+- `public/assets/frostbound/cell-autotile-v2/open-red-*.png`
+- `public/assets/frostbound/cell-autotile-v2/open-purple-*.png`
+- `public/assets/frostbound/cell-autotile-v2/covered-comparison.png`
+- `public/assets/frostbound/cell-autotile-v2/open-comparison.png`
+
+これらを直接修正しても、生成スクリプトの再実行で上書きされる。
+
+### 生成スクリプト
+
+- 未開封セル: `scripts/generate-covered-cell-atlas.mjs`
+- 開封セル: `scripts/generate-open-cell-atlas.mjs`
+- 開封セル表面マスターの初期生成のみ: `scripts/generate-open-surface-master.mjs`
+
+push 前には、追加・変更した全画像について「元画像／自動生成物／確認専用」を分類し、
+格納先と再生成時に上書きされるかをユーザーへ報告すること。
 
 ## 触ってよいファイル
 

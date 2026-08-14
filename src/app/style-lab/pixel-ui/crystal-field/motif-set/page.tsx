@@ -2,7 +2,7 @@ import Link from "next/link";
 import styles from "./motif-set.module.css";
 
 const MOTIF_BASE = "/assets/frostbound/motifs-v2";
-const AUTOTILE_BASE = "/assets/frostbound/cell-autotile-v1";
+const AUTOTILE_BASE = "/assets/frostbound/cell-autotile-v2";
 const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
 const CRYSTAL_CANDIDATE_BASE = "/assets/frostbound/motif-candidates-v1";
 
@@ -20,7 +20,11 @@ const SHAPES = [
   { name: "tall", label: "縦長", grid: ["11", "11", "11"] },
   { name: "l", label: "L字", grid: ["110", "110", "111"] },
   { name: "l-rotated", label: "L字・180°", grid: ["111", "011", "011"] },
-  { name: "step", label: "段差", grid: ["110", "111"] },
+  { name: "step", label: "段差", grid: ["110", "011"] },
+  { name: "mega-wide", label: "大型・横長", grid: ["11111", "11111"] },
+  { name: "mega-tall", label: "大型・縦長", grid: ["11", "11", "11", "11", "11"] },
+  { name: "mega-l", label: "大型・L字", grid: ["110", "110", "110", "111", "111"] },
+  { name: "mega-step", label: "大型・段差", grid: ["11100", "11111", "00111", "00111"] },
 ];
 
 const COVERED_ASSETS: AssetSpec[] = SHAPES.map((shape) => ({
@@ -175,7 +179,7 @@ export default function MotifSetPage() {
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>04</span><h2>未開封：共通部品で6形状</h2></div>
+            <div><span>04</span><h2>未開封：共通部品で10形状</h2></div>
             <p>正方形は完全保持。新形状には実物から抽出した粒と雪際の深さを移植します。</p>
           </div>
           <div className={styles.assetGridSix}>
@@ -185,7 +189,7 @@ export default function MotifSetPage() {
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>05</span><h2>開封：3色×6形状</h2></div>
+            <div><span>05</span><h2>開封：3色×10形状</h2></div>
             <p>既存の青・赤・紫をパレットとして選択でき、180°回転L字と段差にも適用できます。</p>
           </div>
           <div className={styles.paletteStack}>
