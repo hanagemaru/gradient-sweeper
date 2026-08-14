@@ -33,6 +33,12 @@ export default function CrystalFieldPage() {
           CRYSTAL FIELD
           <small>参考画像ベース</small>
         </span>
+        <Link
+          href="/style-lab/pixel-ui/crystal-field/motif-set"
+          className={viewerStyles.switchLink}
+        >
+          モチーフ整理案
+        </Link>
         <Link href="/style-lab/pixel-ui" className={viewerStyles.switchLink}>
           比較へ
         </Link>
