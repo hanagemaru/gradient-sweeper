@@ -4,7 +4,7 @@ import styles from "./motif-set.module.css";
 const MOTIF_BASE = "/assets/frostbound/motifs-v2";
 const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
 
-type AssetStatus = "keep" | "redraw" | "add";
+type AssetStatus = "keep" | "retouch" | "redraw" | "add";
 
 type AssetSpec = {
   name: string;
@@ -60,35 +60,36 @@ const CURRENT_ASSETS: AssetSpec[] = [
   {
     name: "cluster-large",
     label: "結晶・大",
-    role: "大きな主役",
+    role: "輪郭色と面の境界を弱める",
     src: `${CRYSTAL_BASE}/cluster-large.png`,
-    status: "keep",
+    status: "retouch",
   },
   {
     name: "cluster-medium",
     label: "結晶・中",
-    role: "縦長の中型",
+    role: "輪郭色と面の境界を弱める",
     src: `${CRYSTAL_BASE}/cluster-medium.png`,
-    status: "keep",
+    status: "retouch",
   },
   {
     name: "cluster-wide",
     label: "結晶・横長",
-    role: "低いシルエット",
+    role: "輪郭色と面の境界を弱める",
     src: `${CRYSTAL_BASE}/cluster-wide.png`,
-    status: "keep",
+    status: "retouch",
   },
   {
     name: "accent-small",
     label: "結晶・小",
-    role: "小さな隙間のアクセント",
+    role: "小さすぎるため中小サイズで再制作",
     src: `${CRYSTAL_BASE}/accent-small.png`,
-    status: "keep",
+    status: "redraw",
   },
 ];
 
 const STATUS_LABEL: Record<AssetStatus, string> = {
   keep: "継続",
+  retouch: "輪郭調整",
   redraw: "再制作",
   add: "追加候補",
 };
@@ -115,14 +116,14 @@ function AssetCard({ asset }: { asset: AssetSpec }) {
 
 function UnifiedBlueCell() {
   return (
-    <svg className={styles.candidateSvg} viewBox="0 0 48 48" aria-label="縁取りを統一した青いセル案">
+    <svg className={styles.candidateSvg} viewBox="0 0 96 96" aria-label="縁取りを統一した青いセル案">
       <g shapeRendering="crispEdges">
-        <path fill="#155dc0" d="M5 2h38v2h3v38h-3v3H5v-3H2V5h3z" />
-        <path fill="#d8efff" d="M7 4h34v2H7zM4 7h2v33H4z" />
-        <path fill="#6ba9ed" d="M7 7h34v33H7z" />
-        <path fill="#a9d5ff" d="M9 8h30v2H9zM8 10h2v25H8z" />
-        <path fill="#2d79d5" d="M8 40h33v2H8zM41 8h2v32h-2z" />
-        <path fill="#c6e6ff" d="M13 13h3v3h-3zM29 20h2v2h-2zM20 32h2v2h-2z" />
+        <path fill="#3479c9" d="M13 3h70v2h5v4h3v74h-3v5h-5v3H13v-3H8v-5H5V13h3V8h5z" />
+        <path fill="#d9efff" d="M14 5h68v1H14zM10 8h74v1H10zM8 11h1v70H8zM11 8h1v75h-1z" />
+        <path fill="#79afe8" d="M13 10h70v73H13z" />
+        <path fill="#a9d3f6" d="M14 11h68v1H14zM13 12h1v67h-1z" />
+        <path fill="#4f91d5" d="M14 82h69v2H14zM82 12h2v70h-2z" />
+        <path fill="#cde8ff" d="M21 20h3v3h-3zM63 31h2v2h-2zM39 68h2v2h-2zM70 62h3v2h-3z" />
       </g>
     </svg>
   );
@@ -130,14 +131,14 @@ function UnifiedBlueCell() {
 
 function StepCell() {
   return (
-    <svg className={styles.candidateSvgWide} viewBox="0 0 72 52" aria-label="段差セル案">
+    <svg className={styles.candidateSvgWide} viewBox="0 0 160 112" aria-label="段差セル案">
       <g shapeRendering="crispEdges">
-        <path fill="#8a3eb5" d="M4 2h40v12h24v34H30V36H2V4h2z" />
-        <path fill="#f1c7ff" d="M6 4h36v2H6zM4 6h2v27H4zM44 16h22v2H44z" />
-        <path fill="#bd6fd0" d="M7 7h34v26H7zM32 16h33v29H32z" />
-        <path fill="#df9deb" d="M9 9h30v2H9zM34 18h29v2H34z" />
-        <path fill="#722c9e" d="M7 33h25v2H7zM32 45h33v2H32zM65 18h2v27h-2z" />
-        <path fill="#f0c1f7" d="M14 16h3v2h-3zM50 25h3v3h-3zM38 37h2v2h-2z" />
+        <path fill="#8847ad" d="M10 3h88v4h5v24h47v4h5v67h-4v5h-5v2H67v-3h-5V78H10v-3H5v-5H3V12h2V7h5z" />
+        <path fill="#efcefa" d="M12 5h84v1H12zM8 8h91v1H8zM6 11h1v57H6zM9 9h1v63H9zM103 33h45v1h-45z" />
+        <path fill="#bd75cf" d="M11 10h86v65H11zM65 36h84v68H65z" />
+        <path fill="#dfa7e8" d="M12 11h84v1H12zM66 37h82v1H66zM11 12h1v59H11zM65 38h1v62H65z" />
+        <path fill="#8d4bb0" d="M12 74h53v2H12zM66 103h83v2H66zM148 38h2v65h-2z" />
+        <path fill="#f0c8f4" d="M26 25h3v2h-3zM77 51h2v2h-2zM126 61h3v3h-3zM91 89h2v2h-2z" />
       </g>
     </svg>
   );
@@ -145,13 +146,28 @@ function StepCell() {
 
 function SingleCrystal() {
   return (
-    <svg className={styles.candidateCrystal} viewBox="0 0 34 48" aria-label="単体クリスタル案">
+    <svg className={styles.candidateCrystal} viewBox="0 0 64 88" aria-label="単体クリスタル案">
       <g shapeRendering="crispEdges">
-        <path fill="#15509f" d="M16 1h3v3h3v4h3v33h-3v4H11v-3H8V10h3V7h2V4h3z" />
-        <path fill="#d8f3ff" d="M16 4h3v3h2v4h-2v28h-7V11h2V7h2z" />
-        <path fill="#79c0ef" d="M19 7h2v4h2v28h-4z" />
-        <path fill="#2d78c8" d="M12 39h10v3H12zM21 11h2v28h-2z" />
-        <path fill="#fff" d="M14 12h2v12h-2z" />
+        <path fill="#3974af" d="M31 2h3v4h3v4h3v5h3v58h-3v5h-4v4h-4v3H22v-3h-4v-4h-3v-5h-2V18h3v-6h3V8h4V5h4V2z" />
+        <path fill="#e4f5ff" d="M29 5h4v4h3v4h3v5h-1v53h-3v5h-3v3H23v-3h-3v-5h-2V19h2v-5h3v-4h3V7h3z" />
+        <path fill="#84bee9" d="M33 9h3v4h3v5h2v53h-3v5h-3v3h-3V20z" />
+        <path fill="#5c96cc" d="M32 20h1v59h-1zM23 79h12v2H23zM39 19h2v52h-2z" />
+        <path fill="#fff" d="M23 18h2v28h-2zM26 13h2v14h-2z" />
+      </g>
+    </svg>
+  );
+}
+
+function SmallCrystalCluster() {
+  return (
+    <svg className={styles.candidateCluster} viewBox="0 0 72 64" aria-label="中小サイズのクリスタル案">
+      <g shapeRendering="crispEdges">
+        <path fill="#3974af" d="M35 3h3v4h3v5h3v33h8V28h3v-4h4v4h3v25h6v5h-3v3H9v-3H5v-5h8V39h3v-4h4v4h3v7h7V12h2V7h3z" />
+        <path fill="#e7f7ff" d="M35 6h2v4h3v4h1v31h-8V13h2zM17 38h2v4h2v11h-6V41h2zM55 28h2v5h2v20h-5V32h1z" />
+        <path fill="#7fb9e5" d="M37 10h3v4h2v32h-5zM19 42h2v11h-2zM57 33h2v20h-2z" />
+        <path fill="#5b95cb" d="M33 46h9v2h-9zM54 53h5v2h-5zM15 53h6v2h-6z" />
+        <path fill="#d9efff" d="M10 55h53v3H10z" />
+        <path fill="#82bce7" d="M13 58h50v2H13z" />
       </g>
     </svg>
   );
@@ -212,7 +228,7 @@ export default function MotifSetPage() {
               <span>01</span>
               <h2>現在の10種類</h2>
             </div>
-            <p>9種類は継続。青い単セルだけ、L字と同じ縁取りへ直します。</p>
+            <p>セルは青い単セルを再制作。クリスタル4種は輪郭を調整します。</p>
           </div>
           <div className={styles.assetGrid}>
             {CURRENT_ASSETS.map((asset) => (
@@ -225,7 +241,7 @@ export default function MotifSetPage() {
           <div className={styles.sectionTitle}>
             <div>
               <span>02</span>
-              <h2>変更する3点</h2>
+              <h2>形状を変更する4点</h2>
             </div>
             <p>形の不足を補いながら、両方式で使いやすい役割に絞ります。</p>
           </div>
@@ -246,18 +262,46 @@ export default function MotifSetPage() {
             </CandidateCard>
             <CandidateCard
               label="単体クリスタルを追加"
-              note="大きなクラスターだけでは埋めづらい、小さな隙間を担当"
+              note="表示上1pxの輪郭で作り、セル系より線が強く見えない濃さに調整"
               status="add"
             >
               <SingleCrystal />
             </CandidateCard>
+            <CandidateCard
+              label="結晶・小を中小サイズへ"
+              note="40pxから約72pxへ。背景でも形を認識できる大きさにする"
+              status="redraw"
+            >
+              <SmallCrystalCluster />
+            </CandidateCard>
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.sectionTitle}>
+            <div>
+              <span>03</span>
+              <h2>クリスタル共通の輪郭調整</h2>
+            </div>
+            <p>大・中・横長・中小・単体の全5種類へ適用します。</p>
+          </div>
+          <div className={styles.outlineRule}>
+            <div>
+              <strong>現在</strong>
+              <p>濃い紺の外周と面境界が強く、セルより切り抜いたように見える。</p>
+            </div>
+            <span aria-hidden="true">→</span>
+            <div>
+              <strong>修正後</strong>
+              <p>外周・面境界とも表示上1px。線色を明るい青へ寄せ、塗りとの明度差も縮める。</p>
+            </div>
           </div>
         </section>
 
         <section className={`${styles.panel} ${styles.summaryPanel}`}>
           <div className={styles.sectionTitle}>
             <div>
-              <span>03</span>
+              <span>04</span>
               <h2>整理後の共通セット</h2>
             </div>
             <p>セル7種類＋クリスタル5種類＝合計12種類です。</p>
@@ -269,7 +313,7 @@ export default function MotifSetPage() {
             </div>
             <div>
               <strong>クリスタル系・5</strong>
-              <p>大、中、横長、小、単体</p>
+              <p>大、中、横長、中小、単体</p>
             </div>
             <div>
               <strong>共通ルール</strong>
@@ -277,7 +321,7 @@ export default function MotifSetPage() {
             </div>
           </div>
           <p className={styles.nextStep}>
-            この3点を承認後、最終アセットを作り、同じ12種類で「半落ちの散布柄」と
+            この調整を承認後、最終アセットを作り、同じ12種類で「半落ちの散布柄」と
             「ゲームマップ型」を並べます。
           </p>
         </section>

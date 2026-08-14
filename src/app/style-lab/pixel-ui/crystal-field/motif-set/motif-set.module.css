@@ -185,6 +185,10 @@
   color: #a9d6f2;
 }
 
+.status_retouch {
+  color: #aee8d2;
+}
+
 .status_redraw {
   color: #ffd28f;
 }
@@ -195,7 +199,7 @@
 
 .candidateGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -209,25 +213,64 @@
 
 .candidateSvg,
 .candidateSvgWide,
-.candidateCrystal {
+.candidateCrystal,
+.candidateCluster {
   display: block;
   overflow: visible;
   filter: drop-shadow(5px 6px 0 rgba(30, 55, 105, 0.28));
 }
 
 .candidateSvg {
-  width: 112px;
-  height: 112px;
+  width: 96px;
+  height: 96px;
 }
 
 .candidateSvgWide {
-  width: 180px;
-  height: 130px;
+  width: 160px;
+  height: 112px;
 }
 
 .candidateCrystal {
-  width: 76px;
-  height: 118px;
+  width: 64px;
+  height: 88px;
+}
+
+.candidateCluster {
+  width: 72px;
+  height: 64px;
+}
+
+.outlineRule {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.outlineRule > div {
+  padding: 12px;
+  border: 2px solid var(--navy-950);
+  background: var(--navy-800);
+}
+
+.outlineRule > span {
+  align-self: center;
+  color: var(--amber);
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: 28px;
+}
+
+.outlineRule strong {
+  color: var(--cyan);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.outlineRule p {
+  margin: 7px 0 0;
+  color: #cfe4f7;
+  font-size: 11px;
+  line-height: 1.7;
 }
 
 .roleGrid {
@@ -281,8 +324,14 @@
   }
 
   .candidateGrid,
+  .outlineRule,
   .roleGrid {
     grid-template-columns: 1fr;
+  }
+
+  .outlineRule > span {
+    justify-self: center;
+    rotate: 90deg;
   }
 }
 
