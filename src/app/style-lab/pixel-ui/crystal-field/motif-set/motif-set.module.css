@@ -127,6 +127,105 @@
   gap: 8px;
 }
 
+.assetGridSix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.referencePair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.referencePair > div {
+  display: flex;
+  min-height: 190px;
+  padding: 12px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 2px solid var(--navy-950);
+  background: linear-gradient(180deg, #d3e2fb, #b9cdf6);
+}
+
+.referencePair .assetImage {
+  max-height: 154px;
+}
+
+.referencePair small {
+  color: #416b9d;
+  font-size: 10px;
+}
+
+.referencePair > span {
+  color: var(--amber);
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: 32px;
+}
+
+.referencePair > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--amber);
+  background: rgba(6, 26, 55, 0.34);
+  color: #cfe4f7;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.paletteStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.paletteGroup {
+  padding: 10px;
+  border: 2px solid var(--navy-950);
+  background: rgba(6, 26, 55, 0.26);
+}
+
+.paletteGroup > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.paletteGroup > header i {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  box-shadow: 2px 2px 0 var(--navy-950);
+}
+
+.paletteGroup > header strong {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.paletteGroup > header small {
+  color: #a9c8e8;
+  font-size: 10px;
+}
+
+.palette_blue {
+  background: #96baf9;
+}
+
+.palette_red {
+  background: #ef5068;
+}
+
+.palette_purple {
+  background: #c370c5;
+}
+
 .masterGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -455,6 +554,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .assetGridSix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .masterGrid,
   .ruleGrid {
     grid-template-columns: 1fr;
@@ -493,6 +596,19 @@
 
   .masterStage {
     min-height: 164px;
+  }
+
+  .referencePair {
+    grid-template-columns: 1fr;
+  }
+
+  .referencePair > span {
+    justify-self: center;
+    rotate: 90deg;
+  }
+
+  .referencePair > p {
+    grid-column: auto;
   }
 
   .coveredReference {

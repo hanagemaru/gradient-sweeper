@@ -30,11 +30,42 @@ const COLOR = {
   blueDark: [25, 87, 210, 255],
 };
 
+const OPEN_PALETTES = {
+  blue: {
+    edge: COLOR.snow,
+    edgeInner: COLOR.iceLight,
+    highlight: COLOR.ice,
+    body: COLOR.ice,
+    inner: COLOR.blueBody,
+    mid: COLOR.blueMid,
+    dark: COLOR.blueDark,
+  },
+  red: {
+    edge: COLOR.snow,
+    edgeInner: [255, 208, 216, 255],
+    highlight: [255, 154, 170, 255],
+    body: [239, 80, 104, 255],
+    inner: [255, 113, 135, 255],
+    mid: [214, 85, 68, 255],
+    dark: [186, 13, 1, 255],
+  },
+  purple: {
+    edge: COLOR.snow,
+    edgeInner: [230, 186, 231, 255],
+    highlight: [218, 161, 222, 255],
+    body: [195, 112, 197, 255],
+    inner: [207, 140, 208, 255],
+    mid: [181, 91, 185, 255],
+    dark: [153, 38, 158, 255],
+  },
+};
+
 const SHAPES = [
-  { name: "square", grid: ["11", "11"], seed: 101 },
+  { name: "square", grid: ["1"], unit: 119, radius: 18, seed: 101 },
   { name: "wide", grid: ["111", "111"], seed: 113 },
   { name: "tall", grid: ["11", "11", "11"], seed: 127 },
   { name: "l", grid: ["110", "110", "111"], seed: 139 },
+  { name: "l-rotated", grid: ["111", "011", "011"], seed: 145 },
   { name: "step", grid: ["110", "111"], seed: 151 },
 ];
 
@@ -76,22 +107,25 @@ function roundedOut(inside, x, y, radius) {
   return outsideArc(up, left) || outsideArc(up, right) || outsideArc(down, left) || outsideArc(down, right);
 }
 
-function makeShape(grid) {
+function makeShape(shape) {
+  const { grid } = shape;
+  const unit = shape.unit ?? UNIT;
+  const radius = shape.radius ?? RADIUS;
   const rows = grid.length;
   const columns = Math.max(...grid.map((row) => row.length));
   const raw = (x, y) => {
     const localX = x - PAD;
     const localY = y - PAD;
     if (localX < 0 || localY < 0) return false;
-    const column = Math.floor(localX / UNIT);
-    const row = Math.floor(localY / UNIT);
+    const column = Math.floor(localX / unit);
+    const row = Math.floor(localY / unit);
     return row < rows && column < columns && grid[row]?.[column] === "1";
   };
-  const inside = (x, y) => raw(x, y) && !roundedOut(raw, x, y, RADIUS);
+  const inside = (x, y) => raw(x, y) && !roundedOut(raw, x, y, radius);
   return {
     inside,
-    width: columns * UNIT + PAD * 2 + 2,
-    height: rows * UNIT + PAD * 2 + 8,
+    width: columns * unit + PAD + 6,
+    height: rows * unit + PAD + 6,
   };
 }
 
@@ -152,6 +186,34 @@ async function extractStamps(fileName, bounds, baseColor, minimumSize = 2) {
   return stamps;
 }
 
+async function extractSnowDepthProfile() {
+  const source = path.join(MOTIF_DIR, "cell-covered-large.png");
+  const { data, info } = await sharp(source).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const snowKeys = new Set([
+    COLOR.snow,
+    COLOR.snowLight,
+    COLOR.snowMid,
+    COLOR.iceLight,
+    COLOR.ice,
+  ].map((color) => color.join(",")));
+  const profile = [];
+
+  for (let x = 14; x < info.width - 14; x += 1) {
+    let bottomOpaque = -1;
+    let bottomSnow = -1;
+    for (let y = 0; y < info.height; y += 1) {
+      const offset = (y * info.width + x) * 4;
+      if (data[offset + 3] === 0) continue;
+      bottomOpaque = y;
+      if (snowKeys.has(colorKey(data, offset))) bottomSnow = y;
+    }
+    const depth = bottomOpaque - bottomSnow;
+    if (bottomSnow >= 0 && depth >= 8 && depth <= 30) profile.push(depth);
+  }
+
+  return profile;
+}
+
 function drawShiftedShape(buffer, width, height, inside, dx, dy, color) {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -164,9 +226,10 @@ function stampTexture({ buffer, width, height, inside, stamps, seed, rate, snowL
   const random = makeRandom(seed);
   const attempts = Math.round((width * height) * rate);
   if (stamps.length === 0) return;
+  const startIndex = Math.floor(random() * stamps.length);
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const stamp = stamps[Math.floor(random() * stamps.length)];
+    const stamp = stamps[(startIndex + attempt) % stamps.length];
     const anchorX = PAD + 7 + Math.floor(random() * Math.max(1, width - PAD * 2 - 14));
     const anchorY = PAD + 7 + Math.floor(random() * Math.max(1, height - PAD * 2 - 24));
     for (const pixel of stamp) {
@@ -179,12 +242,12 @@ function stampTexture({ buffer, width, height, inside, stamps, seed, rate, snowL
   }
 }
 
-function renderOpen(shape, stamps) {
-  const { inside, width, height } = makeShape(shape.grid);
+function renderOpen(shape, stamps, palette) {
+  const { inside, width, height } = makeShape(shape);
   const buffer = Buffer.alloc(width * height * 4);
 
-  drawShiftedShape(buffer, width, height, inside, 2, 7, COLOR.blueDark);
-  drawShiftedShape(buffer, width, height, inside, 1, 4, COLOR.blueMid);
+  drawShiftedShape(buffer, width, height, inside, 2, 7, palette.dark);
+  drawShiftedShape(buffer, width, height, inside, 1, 4, palette.mid);
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -194,12 +257,12 @@ function renderOpen(shape, stamps) {
       const openDown = !inside(x, y + 1);
       const openRight = !inside(x + 1, y);
       const distance = distanceToOutside(inside, x, y, 4);
-      let color = COLOR.ice;
-      if (openUp || openLeft) color = COLOR.snow;
-      else if (openDown || openRight) color = COLOR.blueDark;
-      else if (!inside(x, y - 2) || !inside(x - 2, y)) color = COLOR.iceLight;
-      else if (!inside(x, y + 2) || !inside(x + 2, y)) color = COLOR.blueMid;
-      else if (distance === 2) color = COLOR.blueBody;
+      let color = palette.body;
+      if (openUp || openLeft) color = palette.edge;
+      else if (openDown || openRight) color = palette.dark;
+      else if (!inside(x, y - 2) || !inside(x - 2, y)) color = palette.edgeInner;
+      else if (!inside(x, y + 2) || !inside(x + 2, y)) color = palette.mid;
+      else if (distance === 2) color = palette.inner;
       setPixel(buffer, width, x, y, color);
     }
   }
@@ -208,8 +271,8 @@ function renderOpen(shape, stamps) {
   return { buffer, width, height };
 }
 
-function renderCovered(shape, stamps) {
-  const { inside, width, height } = makeShape(shape.grid);
+function renderCovered(shape, stamps, snowDepthProfile) {
+  const { inside, width, height } = makeShape(shape);
   const buffer = Buffer.alloc(width * height * 4);
   const random = makeRandom(shape.seed);
   const bottomAtX = new Int16Array(width).fill(-1);
@@ -220,12 +283,9 @@ function renderCovered(shape, stamps) {
     }
   }
 
-  const snowDepth = Array.from({ length: width }, (_, x) => {
-    const block = Math.floor((x + shape.seed) / 3);
-    const variation = ((block * 11 + shape.seed * 5) % 9) - 4;
-    const notch = (block * 3 + shape.seed) % 23 === 0 ? 5 : 0;
-    return 15 + Math.round(variation * 0.7) + notch;
-  });
+  const snowDepth = Array.from({ length: width }, (_, x) =>
+    snowDepthProfile[(x + shape.seed) % snowDepthProfile.length],
+  );
   const snowLineAt = (x) => bottomAtX[x] - snowDepth[x];
 
   drawShiftedShape(buffer, width, height, inside, 2, 8, COLOR.blueDark);
@@ -272,29 +332,76 @@ async function writeImage(name, image) {
     .toFile(path.join(OUTPUT_DIR, `${name}.png`));
 }
 
+function paletteMap(palette) {
+  return new Map([
+    [COLOR.snow.join(","), palette.edge],
+    [COLOR.snowLight.join(","), palette.edgeInner],
+    [COLOR.snowMid.join(","), palette.highlight],
+    [COLOR.iceLight.join(","), palette.edgeInner],
+    [COLOR.ice.join(","), palette.body],
+    [COLOR.blueBody.join(","), palette.inner],
+    [COLOR.blueMid.join(","), palette.mid],
+    [COLOR.blueDark.join(","), palette.dark],
+    ["22,63,119,255", palette.dark],
+  ]);
+}
+
+async function writeCanonicalOpenL(paletteName, palette) {
+  const source = path.join(MOTIF_DIR, "l-panel-blue.png");
+  const { data, info } = await sharp(source).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const result = Buffer.from(data);
+  const replacements = paletteMap(palette);
+
+  if (paletteName !== "blue") {
+    for (let offset = 0; offset < result.length; offset += 4) {
+      const replacement = replacements.get(colorKey(result, offset));
+      if (replacement) result.set(replacement, offset);
+    }
+  }
+
+  const image = sharp(result, { raw: info });
+  await image.clone().png({ compressionLevel: 9, palette: true, colours: 32 })
+    .toFile(path.join(OUTPUT_DIR, `open-${paletteName}-l.png`));
+  await image.clone().rotate(180).png({ compressionLevel: 9, palette: true, colours: 32 })
+    .toFile(path.join(OUTPUT_DIR, `open-${paletteName}-l-rotated.png`));
+}
+
 async function main() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  const coveredSource = path.join(MOTIF_DIR, "cell-covered-large.png");
   const coveredStamps = await extractStamps(
     "cell-covered-large.png",
     { left: 16, top: 14, right: 112, bottom: 94 },
     COLOR.snow,
   );
-  const openStamps = await extractStamps(
-    "l-panel-blue.png",
-    { left: 18, top: 18, right: 82, bottom: 76 },
-    COLOR.ice,
-    1,
-  );
+  const snowDepthProfile = await extractSnowDepthProfile();
+  const openSources = {
+    blue: { file: "l-panel-blue.png", bounds: { left: 18, top: 18, right: 82, bottom: 76 } },
+    red: { file: "cell-open-red.png", bounds: { left: 20, top: 20, right: 84, bottom: 78 } },
+    purple: { file: "cell-open-purple-wide.png", bounds: { left: 22, top: 20, right: 106, bottom: 76 } },
+  };
 
   for (const shape of SHAPES) {
-    const covered = renderCovered(shape, coveredStamps);
-    const open = renderOpen(shape, openStamps);
-    await writeImage(`covered-${shape.name}`, covered);
-    await writeImage(`open-blue-${shape.name}`, open);
-    console.log(`${shape.name.padEnd(8)} covered/open ${covered.width}x${covered.height}`);
+    if (shape.name === "square") {
+      await fs.copyFile(coveredSource, path.join(OUTPUT_DIR, "covered-square.png"));
+    } else {
+      const covered = renderCovered(shape, coveredStamps, snowDepthProfile);
+      await writeImage(`covered-${shape.name}`, covered);
+    }
   }
 
-  console.log(`covered stamps: ${coveredStamps.length}, open stamps: ${openStamps.length}`);
+  for (const [paletteName, palette] of Object.entries(OPEN_PALETTES)) {
+    const source = openSources[paletteName];
+    const openStamps = await extractStamps(source.file, source.bounds, palette.body, 1);
+    for (const shape of SHAPES) {
+      if (shape.name === "l" || shape.name === "l-rotated") continue;
+      await writeImage(`open-${paletteName}-${shape.name}`, renderOpen(shape, openStamps, palette));
+    }
+    await writeCanonicalOpenL(paletteName, palette);
+    console.log(`${paletteName.padEnd(7)} stamps ${openStamps.length}`);
+  }
+
+  console.log(`covered stamps ${coveredStamps.length}, snow profile ${snowDepthProfile.length}`);
 }
 
 main();

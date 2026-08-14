@@ -15,24 +15,33 @@ type AssetSpec = {
 };
 
 const SHAPES = [
-  { name: "square", label: "正方形", grid: ["11", "11"] },
+  { name: "square", label: "正方形", grid: ["1"] },
   { name: "wide", label: "横長", grid: ["111", "111"] },
   { name: "tall", label: "縦長", grid: ["11", "11", "11"] },
   { name: "l", label: "L字", grid: ["110", "110", "111"] },
+  { name: "l-rotated", label: "L字・180°", grid: ["111", "011", "011"] },
   { name: "step", label: "段差", grid: ["110", "111"] },
 ];
 
 const COVERED_ASSETS: AssetSpec[] = SHAPES.map((shape) => ({
   ...shape,
-  role: shape.name === "square" ? "基準形を再現する精度確認" : "同じ雪面部品から自動生成",
+  role: shape.name === "square" ? "生成元PNGをそのまま完全保持" : "同じ雪面部品から自動生成",
   src: `${AUTOTILE_BASE}/covered-${shape.name}.png`,
 }));
 
-const OPEN_ASSETS: AssetSpec[] = SHAPES.map((shape) => ({
-  ...shape,
-  role: shape.name === "l" ? "既存L字と同じ規則の再現確認" : "L字・青の部品から自動生成",
-  src: `${AUTOTILE_BASE}/open-blue-${shape.name}.png`,
-}));
+const OPEN_PALETTES = [
+  { name: "blue", label: "青", source: "L字・青" },
+  { name: "red", label: "赤", source: "開封・赤" },
+  { name: "purple", label: "紫", source: "開封・紫横長" },
+];
+
+function openAssets(palette: (typeof OPEN_PALETTES)[number]): AssetSpec[] {
+  return SHAPES.map((shape) => ({
+    ...shape,
+    role: shape.name === "l" ? `${palette.source}の形を保持` : `${palette.source}のパレットで生成`,
+    src: `${AUTOTILE_BASE}/open-${palette.name}-${shape.name}.png`,
+  }));
+}
 
 const OUTLINE_PAIRS = [
   { label: "結晶・大", before: `${CRYSTAL_BASE}/cluster-large.png`, after: `${CRYSTAL_CANDIDATE_BASE}/cluster-large-soft.png` },
@@ -89,6 +98,17 @@ function MasterCard({ label, src, note }: { label: string; src: string; note: st
   );
 }
 
+function ReferencePair() {
+  return (
+    <div className={styles.referencePair}>
+      <div><PixelImage src={`${MOTIF_BASE}/cell-covered-large.png`} /><small>生成元：未開封・大</small></div>
+      <span aria-hidden="true">＝</span>
+      <div><PixelImage src={`${AUTOTILE_BASE}/covered-square.png`} /><small>基準出力：正方形</small></div>
+      <p>既存の正方形は再描画せず、そのPNGをマスターとして完全に保持します。新形状だけが、この雪面粒・雪際・側面を利用します。</p>
+    </div>
+  );
+}
+
 export const metadata = {
   title: "セル自動生成方式 | CRYSTAL FIELD",
   robots: { index: false, follow: false },
@@ -134,11 +154,19 @@ export default function MotifSetPage() {
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>02</span><h2>形状指定と生成規則</h2></div>
+            <div><span>02</span><h2>生成元と正方形出力の一致確認</h2></div>
+            <p>同じ形状を近似生成して、ディテールを劣化させないための基準です。</p>
+          </div>
+          <ReferencePair />
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.sectionTitle}>
+            <div><span>03</span><h2>形状指定と生成規則</h2></div>
             <p>白いマスをつなげるだけで、同じ規則を全外周へ自動適用します。</p>
           </div>
           <div className={styles.ruleGrid}>
-            <div><strong>形状</strong><p>正方形、横長、縦長、L字、段差を0/1配列で指定。今後も配列を足すだけです。</p></div>
+            <div><strong>形状</strong><p>正方形、横長、縦長、L字、180°回転L字、段差を0/1配列で指定します。</p></div>
             <div><strong>共通部品</strong><p>上下左右の縁、凸角・凹角、面、右下層を隣接状態から自動選択します。</p></div>
             <div><strong>表面ディテール</strong><p>既存PNGから抽出した粒を、固定シードで再配置。毎回同じ結果になります。</p></div>
             <div><strong>ピクセル密度</strong><p>全処理を実寸1pxで行い、拡大縮小やぼかしを使用しません。</p></div>
@@ -147,27 +175,34 @@ export default function MotifSetPage() {
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>03</span><h2>未開封：同じ生成器で5形状</h2></div>
-            <p>特に「未開封・大」の雪面と右下の厚みに寄せた結果です。</p>
+            <div><span>04</span><h2>未開封：共通部品で6形状</h2></div>
+            <p>正方形は完全保持。新形状には実物から抽出した粒と雪際の深さを移植します。</p>
           </div>
-          <div className={styles.assetGridFive}>
+          <div className={styles.assetGridSix}>
             {COVERED_ASSETS.map((asset) => <AssetCard asset={asset} key={asset.name} />)}
           </div>
         </section>
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>04</span><h2>開封・青：L字・青ベースの5形状</h2></div>
-            <p>段差形状も復活。正方形だけを別方式で描くことはありません。</p>
+            <div><span>05</span><h2>開封：3色×6形状</h2></div>
+            <p>既存の青・赤・紫をパレットとして選択でき、180°回転L字と段差にも適用できます。</p>
           </div>
-          <div className={styles.assetGridFive}>
-            {OPEN_ASSETS.map((asset) => <AssetCard asset={asset} key={asset.name} />)}
+          <div className={styles.paletteStack}>
+            {OPEN_PALETTES.map((palette) => (
+              <section className={styles.paletteGroup} key={palette.name}>
+                <header><i className={styles[`palette_${palette.name}`]} /><strong>{palette.label}</strong><small>生成元：{palette.source}</small></header>
+                <div className={styles.assetGridSix}>
+                  {openAssets(palette).map((asset) => <AssetCard asset={asset} key={`${palette.name}-${asset.name}`} />)}
+                </div>
+              </section>
+            ))}
           </div>
         </section>
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>05</span><h2>クリスタル輪郭は前回案を保持</h2></div>
+            <div><span>06</span><h2>クリスタル輪郭は前回案を保持</h2></div>
             <p>セル生成方式とは分離し、今回の確認対象を混ぜません。</p>
           </div>
           <div className={styles.outlineGrid}>
@@ -186,7 +221,7 @@ export default function MotifSetPage() {
 
         <section className={`${styles.panel} ${styles.summaryPanel}`}>
           <div className={styles.sectionTitle}>
-            <div><span>06</span><h2>承認後の進め方</h2></div>
+            <div><span>07</span><h2>承認後の進め方</h2></div>
             <p>採用形状を選んでから背景配置へ進みます。</p>
           </div>
           <div className={styles.roleGrid}>
