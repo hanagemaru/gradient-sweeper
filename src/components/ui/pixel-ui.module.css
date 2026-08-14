@@ -44,30 +44,21 @@
   filter: drop-shadow(var(--asset-shadow));
 }
 
-.wallpaperGrid {
+/*
+ * 背景ワールド: 画面より大きい1枚の固定ピクセル配置レイヤー。
+ * .backdrop (inset:0; overflow:hidden) がカメラのように可視範囲を切り取る。
+ * 中央基準で配置するので、画面が大きいほど周囲がより多く見える。
+ * background-size:cover 相当の拡大縮小はしない — 各素材は等倍のまま。
+ */
+.world {
   position: absolute;
-  inset: -90px -70px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  grid-auto-rows: 170px;
-  align-items: center;
-  justify-items: center;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
 }
 
-.wallpaperImage:nth-child(4n + 1) {
-  translate: -8px -10px;
-}
-
-.wallpaperImage:nth-child(4n + 2) {
-  translate: 9px 7px;
-}
-
-.wallpaperImage:nth-child(4n + 3) {
-  translate: -5px 10px;
-}
-
-.wallpaperImage:nth-child(4n) {
-  translate: 7px -7px;
+.worldImage {
+  position: absolute;
 }
 
 .content {
@@ -522,12 +513,6 @@
     padding-left: 14px;
   }
 
-  .wallpaperGrid {
-    right: -50px;
-    left: -50px;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    grid-auto-rows: 155px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -9,69 +9,27 @@ import {
 } from "react";
 import { useI18n } from "@/i18n/useI18n";
 import styles from "./pixel-ui.module.css";
-
-const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
-const MOTIF_BASE = "/assets/frostbound/motifs-v2";
-
-const WALLPAPER_ASSETS = [
-  { base: MOTIF_BASE, name: "cell-covered-large" },
-  { base: CRYSTAL_BASE, name: "cluster-medium" },
-  { base: MOTIF_BASE, name: "cell-open-red" },
-  { base: MOTIF_BASE, name: "l-panel-blue" },
-  { base: CRYSTAL_BASE, name: "cluster-wide" },
-  { base: MOTIF_BASE, name: "cell-open-purple-wide" },
-  { base: MOTIF_BASE, name: "cell-covered-medium" },
-  { base: CRYSTAL_BASE, name: "cluster-large" },
-] as const;
-
-const WALLPAPER_SEQUENCE = [
-  0, 5, 2, 7, 3, 1, 6, 4,
-  3, 7, 0, 5, 2, 6, 4, 1,
-  6, 1, 4, 0, 7, 2, 5, 3,
-  2, 4, 7, 1, 5, 3, 0, 6,
-  5, 0, 3, 6, 1, 4, 7, 2,
-  7, 2, 6, 4, 0, 5, 1, 3,
-] as const;
+import { BACKGROUND_WORLD, WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/background-world";
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
 
-function DecorativeImage({
-  base,
-  name,
-  className,
-}: {
-  base: string;
-  name: string;
-  className: string;
-}) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={`${base}/${name}.png`}
-      alt=""
-      className={cx(styles.decorativeImage, className)}
-      draggable={false}
-    />
-  );
-}
-
 function PixelBackdrop() {
   return (
     <div className={styles.backdrop} aria-hidden="true">
-      <div className={styles.wallpaperGrid}>
-        {WALLPAPER_SEQUENCE.map((assetIndex, index) => {
-          const asset = WALLPAPER_ASSETS[assetIndex];
-          return (
-            <DecorativeImage
-              key={`${asset.name}-${index}`}
-              base={asset.base}
-              name={asset.name}
-              className={styles.wallpaperImage}
-            />
-          );
-        })}
+      <div className={styles.world} style={{ width: WORLD_WIDTH, height: WORLD_HEIGHT }}>
+        {BACKGROUND_WORLD.map((p, index) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`${p.name}-${index}`}
+            src={`${p.base}/${p.name}.png`}
+            alt=""
+            draggable={false}
+            className={cx(styles.decorativeImage, styles.worldImage)}
+            style={{ left: p.x, top: p.y, width: p.w, height: p.h }}
+          />
+        ))}
       </div>
     </div>
   );
