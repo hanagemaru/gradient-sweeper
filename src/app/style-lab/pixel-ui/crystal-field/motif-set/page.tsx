@@ -2,61 +2,62 @@ import Link from "next/link";
 import styles from "./motif-set.module.css";
 
 const MOTIF_BASE = "/assets/frostbound/motifs-v2";
+const AUTOTILE_BASE = "/assets/frostbound/cell-autotile-v1";
 const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
-const CANDIDATE_BASE = "/assets/frostbound/motif-candidates-v1";
-
-type AssetStatus = "keep" | "retouch" | "redraw" | "add";
+const CRYSTAL_CANDIDATE_BASE = "/assets/frostbound/motif-candidates-v1";
 
 type AssetSpec = {
   name: string;
   label: string;
   role: string;
   src: string;
-  status: AssetStatus;
+  grid?: string[];
 };
 
-const CURRENT_ASSETS: AssetSpec[] = [
-  { name: "cell-covered-large", label: "未開封・大", role: "雪面と厚みの基準", src: `${MOTIF_BASE}/cell-covered-large.png`, status: "keep" },
-  { name: "cell-covered-medium", label: "未開封・中", role: "雪面と厚みの基準", src: `${MOTIF_BASE}/cell-covered-medium.png`, status: "keep" },
-  { name: "cell-open-red", label: "開封・赤", role: "暖色アクセント", src: `${MOTIF_BASE}/cell-open-red.png`, status: "keep" },
-  { name: "cell-open-blue", label: "開封・青", role: "造形を保って縁だけ調整", src: `${MOTIF_BASE}/cell-open-blue.png`, status: "retouch" },
-  { name: "cell-open-purple-wide", label: "開封・紫横長", role: "横方向の流れ", src: `${MOTIF_BASE}/cell-open-purple-wide.png`, status: "keep" },
-  { name: "l-panel-blue", label: "L字・青", role: "青い縁取りの基準", src: `${MOTIF_BASE}/l-panel-blue.png`, status: "keep" },
-  { name: "cluster-large", label: "結晶・大", role: "形と面構成を維持", src: `${CRYSTAL_BASE}/cluster-large.png`, status: "retouch" },
-  { name: "cluster-medium", label: "結晶・中", role: "形と面構成を維持", src: `${CRYSTAL_BASE}/cluster-medium.png`, status: "retouch" },
-  { name: "cluster-wide", label: "結晶・横長", role: "形と面構成を維持", src: `${CRYSTAL_BASE}/cluster-wide.png`, status: "retouch" },
-  { name: "accent-small", label: "結晶・小", role: "40pxでは小さいため置換", src: `${CRYSTAL_BASE}/accent-small.png`, status: "redraw" },
+const SHAPES = [
+  { name: "square", label: "正方形", grid: ["11", "11"] },
+  { name: "wide", label: "横長", grid: ["111", "111"] },
+  { name: "tall", label: "縦長", grid: ["11", "11", "11"] },
+  { name: "l", label: "L字", grid: ["110", "110", "111"] },
+  { name: "step", label: "段差", grid: ["110", "111"] },
 ];
 
-const COVERED_ADDITIONS: AssetSpec[] = [
-  { name: "cell-covered-wide", label: "未開封・横長", role: "既存の雪面・厚い右下層を横長へ展開", src: `${CANDIDATE_BASE}/cell-covered-wide.png`, status: "add" },
-  { name: "cell-covered-l", label: "未開封・L字", role: "正方形の連続を崩す凹形状", src: `${CANDIDATE_BASE}/cell-covered-l.png`, status: "add" },
-  { name: "cell-covered-step", label: "未開封・段差", role: "2つの高さを持つ連結形状", src: `${CANDIDATE_BASE}/cell-covered-step.png`, status: "add" },
-];
+const COVERED_ASSETS: AssetSpec[] = SHAPES.map((shape) => ({
+  ...shape,
+  role: shape.name === "square" ? "基準形を再現する精度確認" : "同じ雪面部品から自動生成",
+  src: `${AUTOTILE_BASE}/covered-${shape.name}.png`,
+}));
 
-const REBUILT_ASSETS: AssetSpec[] = [
-  { name: "cell-open-blue-unified", label: "開封・青／縁調整", role: "L字・青の色段階と1px境界へ合わせる", src: `${CANDIDATE_BASE}/cell-open-blue-unified.png`, status: "retouch" },
-  { name: "crystal-cluster-small", label: "結晶・中小／置換", role: "結晶・大を基準に82×69pxで再構成", src: `${CANDIDATE_BASE}/crystal-cluster-small.png`, status: "redraw" },
-  { name: "crystal-single", label: "単体クリスタル", role: "結晶・大の縦結晶と同じ面構成・色段階", src: `${CANDIDATE_BASE}/crystal-single.png`, status: "add" },
-];
+const OPEN_ASSETS: AssetSpec[] = SHAPES.map((shape) => ({
+  ...shape,
+  role: shape.name === "l" ? "既存L字と同じ規則の再現確認" : "L字・青の部品から自動生成",
+  src: `${AUTOTILE_BASE}/open-blue-${shape.name}.png`,
+}));
 
 const OUTLINE_PAIRS = [
-  { label: "結晶・大", before: `${CRYSTAL_BASE}/cluster-large.png`, after: `${CANDIDATE_BASE}/cluster-large-soft.png` },
-  { label: "結晶・中", before: `${CRYSTAL_BASE}/cluster-medium.png`, after: `${CANDIDATE_BASE}/cluster-medium-soft.png` },
-  { label: "結晶・横長", before: `${CRYSTAL_BASE}/cluster-wide.png`, after: `${CANDIDATE_BASE}/cluster-wide-soft.png` },
+  { label: "結晶・大", before: `${CRYSTAL_BASE}/cluster-large.png`, after: `${CRYSTAL_CANDIDATE_BASE}/cluster-large-soft.png` },
+  { label: "結晶・中", before: `${CRYSTAL_BASE}/cluster-medium.png`, after: `${CRYSTAL_CANDIDATE_BASE}/cluster-medium-soft.png` },
+  { label: "結晶・横長", before: `${CRYSTAL_BASE}/cluster-wide.png`, after: `${CRYSTAL_CANDIDATE_BASE}/cluster-wide-soft.png` },
 ];
 
-const STATUS_LABEL: Record<AssetStatus, string> = {
-  keep: "継続",
-  retouch: "既存ベース調整",
-  redraw: "既存ベース再構成",
-  add: "追加候補",
-};
-
-function PixelImage({ src, className = "" }: { src: string; className?: string }) {
+function PixelImage({ src }: { src: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className={`${styles.assetImage} ${className}`} draggable={false} />
+    <img src={src} alt="" className={styles.assetImage} draggable={false} />
+  );
+}
+
+function GridShape({ grid }: { grid: string[] }) {
+  return (
+    <span className={styles.gridShape} aria-label={grid.join("、")}>
+      {grid.map((row, rowIndex) => (
+        <span key={`${row}-${rowIndex}`}>
+          {[...row].map((cell, columnIndex) => (
+            <i className={cell === "1" ? styles.gridOn : undefined} key={`${cell}-${columnIndex}`} />
+          ))}
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -65,16 +66,31 @@ function AssetCard({ asset }: { asset: AssetSpec }) {
     <article className={styles.assetCard}>
       <div className={styles.assetStage}><PixelImage src={asset.src} /></div>
       <div className={styles.assetCopy}>
-        <span className={`${styles.status} ${styles[`status_${asset.status}`]}`}>{STATUS_LABEL[asset.status]}</span>
-        <strong>{asset.label}</strong>
+        <div className={styles.assetHeading}>
+          {asset.grid && <GridShape grid={asset.grid} />}
+          <strong>{asset.label}</strong>
+        </div>
         <small>{asset.role}</small>
       </div>
     </article>
   );
 }
 
+function MasterCard({ label, src, note }: { label: string; src: string; note: string }) {
+  return (
+    <article className={styles.masterCard}>
+      <div className={styles.masterStage}><PixelImage src={src} /></div>
+      <div>
+        <span className={styles.masterBadge}>生成元</span>
+        <strong>{label}</strong>
+        <p>{note}</p>
+      </div>
+    </article>
+  );
+}
+
 export const metadata = {
-  title: "共通モチーフ整理案 | CRYSTAL FIELD",
+  title: "セル自動生成方式 | CRYSTAL FIELD",
   robots: { index: false, follow: false },
 };
 
@@ -84,11 +100,11 @@ export default function MotifSetPage() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>CRYSTAL FIELD / ASSET REVIEW</p>
-            <h1>共通モチーフの追加・整理案</h1>
+            <p className={styles.eyebrow}>CRYSTAL FIELD / AUTOTILE REVIEW</p>
+            <h1>既存アセット基準のセル自動生成</h1>
             <p>
-              新案を別の絵柄で描き起こさず、既存PNGのパレット・1px境界・雪面の粒・右下の厚みを基準に再整理しました。
-              この段階では背景配置と本番アセットへの反映は行いません。
+              形ごとの描き直しをやめ、既存PNGから抽出した縁・角・表面粒・右下層をコードで組み立てます。
+              形状追加は0/1の配列変更だけで、画像生成AIや拡大縮小は使いません。
             </p>
           </div>
           <nav className={styles.links}>
@@ -99,43 +115,60 @@ export default function MotifSetPage() {
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>01</span><h2>既存10種類と基準</h2></div>
-            <p>新規形状にも、ここにある粒度と立体表現を引き継ぎます。</p>
+            <div><span>01</span><h2>世界観の基準にする2点</h2></div>
+            <p>新しく絵柄を考えず、この2点をマスターとして使います。</p>
           </div>
-          <div className={styles.assetGrid}>
-            {CURRENT_ASSETS.map((asset) => <AssetCard key={asset.name} asset={asset} />)}
-          </div>
-        </section>
-
-        <section className={styles.panel}>
-          <div className={styles.sectionTitle}>
-            <div><span>02</span><h2>未開封セルの形状追加</h2></div>
-            <p>正方形だけにせず、横長・L字・段差を同じ雪セルとして追加します。</p>
-          </div>
-          <div className={styles.coveredReference}>
-            <div><PixelImage src={`${MOTIF_BASE}/cell-covered-large.png`} /><small>基準：未開封・大</small></div>
-            <span aria-hidden="true">→</span>
-            <p>雪面の細かな粒、崩した雪際、右下へ張り出す青い層を各形状へ移植</p>
-          </div>
-          <div className={styles.candidateGridThree}>
-            {COVERED_ADDITIONS.map((asset) => <AssetCard key={asset.name} asset={asset} />)}
+          <div className={styles.masterGrid}>
+            <MasterCard
+              label="未開封・大"
+              src={`${MOTIF_BASE}/cell-covered-large.png`}
+              note="雪面の粒をピクセル塊のまま抽出。雪際、1px境界、右下へ張り出す青い層も数値化します。"
+            />
+            <MasterCard
+              label="L字・青"
+              src={`${MOTIF_BASE}/l-panel-blue.png`}
+              note="開封面の色段階、粒、凸角・凹角、上下左右の縁、右下層を開封セルの共通部品にします。"
+            />
           </div>
         </section>
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>03</span><h2>既存ベースの調整・再構成</h2></div>
-            <p>SVGの別案は撤回し、実PNGで既存の造形を引き継ぎました。</p>
+            <div><span>02</span><h2>形状指定と生成規則</h2></div>
+            <p>白いマスをつなげるだけで、同じ規則を全外周へ自動適用します。</p>
           </div>
-          <div className={styles.candidateGridThree}>
-            {REBUILT_ASSETS.map((asset) => <AssetCard key={asset.name} asset={asset} />)}
+          <div className={styles.ruleGrid}>
+            <div><strong>形状</strong><p>正方形、横長、縦長、L字、段差を0/1配列で指定。今後も配列を足すだけです。</p></div>
+            <div><strong>共通部品</strong><p>上下左右の縁、凸角・凹角、面、右下層を隣接状態から自動選択します。</p></div>
+            <div><strong>表面ディテール</strong><p>既存PNGから抽出した粒を、固定シードで再配置。毎回同じ結果になります。</p></div>
+            <div><strong>ピクセル密度</strong><p>全処理を実寸1pxで行い、拡大縮小やぼかしを使用しません。</p></div>
           </div>
         </section>
 
         <section className={styles.panel}>
           <div className={styles.sectionTitle}>
-            <div><span>04</span><h2>クリスタル輪郭の実画像比較</h2></div>
-            <p>形と内部の塗りは変えず、濃紺の輪郭だけを既存の青へ寄せます。</p>
+            <div><span>03</span><h2>未開封：同じ生成器で5形状</h2></div>
+            <p>特に「未開封・大」の雪面と右下の厚みに寄せた結果です。</p>
+          </div>
+          <div className={styles.assetGridFive}>
+            {COVERED_ASSETS.map((asset) => <AssetCard asset={asset} key={asset.name} />)}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.sectionTitle}>
+            <div><span>04</span><h2>開封・青：L字・青ベースの5形状</h2></div>
+            <p>段差形状も復活。正方形だけを別方式で描くことはありません。</p>
+          </div>
+          <div className={styles.assetGridFive}>
+            {OPEN_ASSETS.map((asset) => <AssetCard asset={asset} key={asset.name} />)}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.sectionTitle}>
+            <div><span>05</span><h2>クリスタル輪郭は前回案を保持</h2></div>
+            <p>セル生成方式とは分離し、今回の確認対象を混ぜません。</p>
           </div>
           <div className={styles.outlineGrid}>
             {OUTLINE_PAIRS.map((pair) => (
@@ -144,7 +177,7 @@ export default function MotifSetPage() {
                 <div className={styles.outlineImages}>
                   <div><PixelImage src={pair.before} /><small>現在</small></div>
                   <span aria-hidden="true">→</span>
-                  <div><PixelImage src={pair.after} /><small>調整後</small></div>
+                  <div><PixelImage src={pair.after} /><small>輪郭調整後</small></div>
                 </div>
               </article>
             ))}
@@ -153,17 +186,15 @@ export default function MotifSetPage() {
 
         <section className={`${styles.panel} ${styles.summaryPanel}`}>
           <div className={styles.sectionTitle}>
-            <div><span>05</span><h2>整理後の候補セット</h2></div>
-            <p>セル9種類＋クリスタル5種類＝候補14種類です。</p>
+            <div><span>06</span><h2>承認後の進め方</h2></div>
+            <p>採用形状を選んでから背景配置へ進みます。</p>
           </div>
           <div className={styles.roleGrid}>
-            <div><strong>セル系・9</strong><p>未開封 大／中／横長／L字／段差、開封 赤／青／紫横長、L字・青</p></div>
-            <div><strong>クリスタル系・5</strong><p>大、中、横長、中小、単体</p></div>
-            <div><strong>配置時の共通ルール</strong><p>総柄として画面外まで続け、モチーフ同士を重ねず、メニュー位置の空白も作らない。</p></div>
+            <div><strong>形の追加</strong><p>縦横サイズや0/1配列を追加して、同じ生成器からPNGを書き出します。</p></div>
+            <div><strong>色違い</strong><p>形状ロジックは共通のまま、既存の赤・紫パレットへ置換できます。</p></div>
+            <div><strong>背景比較</strong><p>承認された形だけで「半落ちの散布柄」と「ゲームマップ型」を作ります。</p></div>
           </div>
-          <p className={styles.nextStep}>
-            このアセット構成の承認後、同じ候補セットから「半落ちの散布柄」と「ゲームマップ型」の2方式を比較ページに実装します。
-          </p>
+          <p className={styles.nextStep}>背景本体と本番アセットは、まだ変更していません。</p>
         </section>
       </div>
     </main>
