@@ -1,0 +1,191 @@
+/*
+ * 固定キャンバス＋レターボックス方式の検証用スタイル。
+ * 本番の pixel-ui.module.css には一切触れず、このディレクトリだけで完結させている。
+ *
+ * 仕組み: .canvas に transform:scale() を掛けると、CSS 仕様上そこが
+ * position:fixed な子要素の containing block になる。
+ * これを利用して .backdrop の inset:0 を「実ビューポート」ではなく
+ * 「390x844 の固定キャンバス」基準にすり替えている。
+ *
+ * スケール値は calc(100vw / 390px) のように長さ同士の割り算にすることで、
+ * JSを使わずCSSだけで contain 相当（縦横どちらか小さい方に合わせる）を実現している。
+ * 2.2 は上限キャップ（デスクトップの大画面でドット絵が過度にぼやけるのを防ぐ簡易対策）。
+ */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.stageNavy {
+  background: #063669;
+}
+
+.stageBlack {
+  background: #000;
+}
+
+.stageBleed {
+  background: #04182f;
+}
+
+.stageFramed {
+  background: #063669;
+}
+
+.bleedWorld {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  transform: scale(1.4);
+  filter: blur(22px) brightness(0.5) saturate(0.85);
+  pointer-events: none;
+}
+
+.bleedImage {
+  position: absolute;
+  display: block;
+  max-width: none;
+  image-rendering: pixelated;
+}
+
+.canvas {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  width: 390px;
+  height: 844px;
+  transform: scale(min(calc(100vw / 390px), calc(100dvh / 844px), 2.2));
+}
+
+.canvasFramed {
+  border: 6px solid #063669;
+  outline: 2px solid #8fe0f2;
+  outline-offset: -11px;
+  box-shadow: 0 0 0 2px #8fe0f2;
+}
+
+.canvasFramed::before,
+.canvasFramed::after {
+  position: absolute;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  background: #063669;
+  content: "";
+}
+
+.canvasFramed::before {
+  top: -6px;
+  left: -6px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.canvasFramed::after {
+  right: -6px;
+  bottom: -6px;
+  clip-path: polygon(100% 100%, 100% 0, 0 100%);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, #d3e2fb 0%, #b9cdf6 55%, #cfe0fb 100%);
+}
+
+.world {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.worldImage {
+  position: absolute;
+  display: block;
+  max-width: none;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 5px 0 rgba(30, 55, 105, 0.28));
+}
+
+/* キャンバス内でのスクロール領域。.canvas 自体の寸法は動かさない。 */
+.scroll {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.content {
+  position: relative;
+  display: flex;
+  min-height: 844px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 108px 16px 42px;
+  font-family: "MaruMonica", sans-serif;
+}
+
+.stack {
+  display: flex;
+  width: 100%;
+  max-width: 320px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.stackWide {
+  max-width: 350px;
+}
+
+/* オーバーレイの案切り替えバー。ステージのサイズ計算には影響させない。 */
+.nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(6, 26, 55, 0.82);
+  font-family: "VT323", ui-monospace, monospace;
+}
+
+.navTitle {
+  margin-right: 8px;
+  color: #8fe0f2;
+  font-size: 15px;
+  line-height: 28px;
+}
+
+.navLink {
+  padding: 4px 10px;
+  border: 1px solid #2a7fba;
+  color: #cfe4f7;
+  font-size: 15px;
+  text-decoration: none;
+  line-height: 20px;
+}
+
+.navLinkOn {
+  background: #2a7fba;
+  color: #fff;
+}
+
+.navSpacer {
+  flex: 1 0 8px;
+}
