@@ -45,30 +45,76 @@ const TILE_WIDTH = Math.round(WORLD_WIDTH / TILE_REPEATS);
 const SAME_ASSET_MIN_DISTANCE = 470;
 
 /**
+ * モチーフ同士の最小すきま。
+ *
+ * 実測（1つ前の生成結果）でいちばん近い組は 5px しか空いておらず、
+ * そこだけ2つの絵がくっついて1つの塊に見えていた。その3倍を新しい下限にする。
+ * すきまは矩形間の分離距離 max(dx, dy) で測る（`fits` の margin と同じ定義）。
+ */
+const MIN_GAP = 15;
+
+/**
  * UIパネルのキープアウト（クリスタル専用）。
  *
  * カメラはワールド中央固定なので、ビューポート (vw, vh) が映すのは
  * x = 1440 ± vw/2、y = 810 ± vh/2。ここに `.stack`（パネル＋言語トグル）が
- * 重なる範囲を、スマホ5サイズ × 本番4ページで実測して和を取った値が下記。
+ * 重なる範囲を、スマホ5サイズ（360/375/390/414/430）× 本番4ページで
+ * 実測して和を取った値が `x[1241,1639] y[476,1090]`。
  *
- *   home/ta   x[1280,1600] y[476, 969]   (.stackMenu = 320px)
- *   ranking   x[1241,1639] y[476, 905]   (.stackWide = 440px)
- *   result    x[1265,1615] y[476,1082]   (.stack     = 350px)
- *   → 和 x[1241,1639] y[476,1082]
+ *   home/ta   .stackMenu = 320px  → x[1280,1600]
+ *   result    .stack     = 350px  → x[1265,1615]（最も下まで伸びる）
+ *   ranking   .stackWide = 440px  → x[1241,1639]（最も広い）
  *
- * これにパネルの落ち影（6px 12px）とクリスタルの drop-shadow ぶんの余裕を足す。
+ * これにパネルの落ち影（6px 12px）ぶんの余裕を足す。
  * セル系モチーフはパネルに重なってよいので、この判定はクリスタルにだけ効かせる。
  *
  * 注意: x の幅（414px）は最小スマホの幅 375px より広い。つまり最小画面では
  * パネルの左右に逃げ場が無く、クリスタルは上下の帯にしか置けない。
  */
-const UI_KEEPOUT = { x0: 1233, x1: 1647, y0: 468, y1: 1094 };
+const UI_KEEPOUT = { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
 /**
- * 最小スマホ（375x667）が映すのは y[477,1144]。キープアウト下端が 1094 なので、
- * クリスタルを置ける帯はその下の約50pxしかない。ここを先に確保する。
+ * パネルの上下に必ずクリスタルを1つずつ見せるための予約枠。
+ *
+ * パネルの上端はビューポート高さに依存する（`.content` の
+ * `padding-top: clamp(92px, 15vh, 132px)`）ため、ワールド座標では画面が
+ * 大きいほど上へ動く。実測値:
+ *
+ *   viewport   可視 y          パネル上端   パネル下端
+ *   360x640    [ 490,1130]      586         1090
+ *   375x667    [ 477,1144]      577         1082
+ *   390x844    [ 388,1232]      515         1021
+ *   414x896    [ 362,1258]      494         1002
+ *   430x932    [ 344,1276]      476          986
+ *
+ * 「可視かつパネルより上」の帯は 5サイズで共通部分が無い（490 > 476）。
+ * つまり全機種で1つのクリスタルを上に見せることは原理的にできない。
+ * そこで上側は2枠に分け、どの機種でも「完全に見える」か「完全にパネルの
+ * 裏へ隠れる／画面外」のどちらかになるようにする。中途半端に半分だけ
+ * パネルへ潜り込む見え方（今回の指摘）が起きないのが条件。
+ *
+ *   above-near: 小型機（360/375）で見える。390 以上では不透明部分がパネル上端より
+ *               下に入るので完全にパネルの裏（＝見えないだけで、破綻はしない）。
+ *   above-far : 大型機（390/414/430）で見える。375 以下では可視域より上で画面外。
+ *   below     : 全機種でパネルより下、かつ画面内に収まる。
+ *
+ * y の範囲は不透明部分（oy/oh）を基準に決めてある。PNG の透明な余白は
+ * パネルに掛かってよいので、矩形の y はその余白ぶん上にずれている。
+ *
+ * 3枠は種類を重複させない。同時に見えるのは (above-near, below) か
+ * (above-far, below) のどちらかなので、これで1画面に同じクリスタルは並ばない。
  */
-const SMALL_PHONE_CRYSTAL_BAND = { x0: 1258, x1: 1622, y0: 1098, y1: 1150 };
+const CRYSTAL_SLOTS = [
+  // cluster-wide: 120x80、不透明部分は (3,35) から 114x45。
+  // 不透明部分が y[517,572] に入る → 375 ではパネル上端 577 の上、390 以上では裏。
+  { key: "above-near", name: "cluster-wide", x0: 1281, x1: 1599, y0: 482, y1: 492, behindPanel: true },
+  // cluster-medium: 110x90、不透明部分は (9,6) から 92x84。
+  // 不透明部分の下端をキープアウト上端 468 以内に収め、390 の可視上端 388 に寄せる。
+  { key: "above-far", name: "cluster-medium", x0: 1250, x1: 1630, y0: 374, y1: 378, behindPanel: false },
+  // accent-small: 40x40、不透明部分は (3,7) から 34x33。
+  // パネル下端の下（1096〜）と 375 の可視下端 1144 の間に完全に収まる唯一のサイズ。
+  { key: "below", name: "accent-small", x0: 1250, x1: 1630, y0: 1089, y1: 1092, behindPanel: false },
+];
 
 /** 確認画像のファイル名につける識別子（試作の比較用） */
 const SUFFIX = TILE_REPEATS > 1 ? `-x${TILE_REPEATS}` : "-x1";
@@ -132,12 +178,44 @@ function pickWeighted(entries, key) {
 
 const pickPalette = () => pickWeighted(PALETTE_WEIGHTS, "prefix");
 
+/**
+ * PNG の寸法と、不透明ピクセルのバウンディングボックス。
+ *
+ * クリスタルの絵は PNG の下寄りに描かれていて、上側に透明の余白がある
+ * （例: cluster-wide は 120x80 のうち上 35px が透明）。パネルとの重なりや
+ * 画面内に見えているかを PNG の矩形で判定すると、透明部分まで「見えている」
+ * ことになり、実際には何も映っていない位置を採用してしまう。
+ * そのため、見え方に関わる判定はすべて不透明部分の矩形で行う。
+ */
 const sizeCache = new Map();
 async function assetSize(base, name) {
   const key = `${base}/${name}`;
   if (sizeCache.has(key)) return sizeCache.get(key);
-  const meta = await sharp(path.join(PUBLIC_DIR, base, `${name}.png`)).metadata();
-  const size = { w: meta.width, h: meta.height };
+  const file = path.join(PUBLIC_DIR, base, `${name}.png`);
+  const { data, info } = await sharp(file)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let x0 = info.width, y0 = info.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[(y * info.width + x) * info.channels + 3] <= 8) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+
+  const size = {
+    w: info.width,
+    h: info.height,
+    ox: x0,
+    oy: y0,
+    ow: x1 - x0 + 1,
+    oh: y1 - y0 + 1,
+  };
   sizeCache.set(key, size);
   return size;
 }
@@ -189,17 +267,19 @@ function farFromSameAsset(rect) {
 }
 
 /**
- * クリスタルがUIパネルに掛からないか。
+ * クリスタルがUIパネルに掛からないか。透明の余白は掛かってよいので不透明部分で見る。
  * 配置はタイル座標なので、ワールド座標のキープアウトを各タイル位置へ写して判定する。
  */
 function clearOfUiPanel(rect) {
+  const y0 = rect.y + rect.oy;
+  const y1 = y0 + rect.oh;
   for (let k = -1; k <= TILE_REPEATS; k += 1) {
-    const x = rect.x + k * TILE_WIDTH;
+    const x0 = rect.x + rect.ox + k * TILE_WIDTH;
     if (
-      x < UI_KEEPOUT.x1 &&
-      x + rect.w > UI_KEEPOUT.x0 &&
-      rect.y < UI_KEEPOUT.y1 &&
-      rect.y + rect.h > UI_KEEPOUT.y0
+      x0 < UI_KEEPOUT.x1 &&
+      x0 + rect.ow > UI_KEEPOUT.x0 &&
+      y0 < UI_KEEPOUT.y1 &&
+      y1 > UI_KEEPOUT.y0
     ) {
       return false;
     }
@@ -215,19 +295,23 @@ function clearOfUiPanel(rect) {
  * 中心からの距離を乱数で決める方式だと、どの島も同じ密度に均されてしまう。
  */
 function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi) {
+  // すきまの下限を MIN_GAP まで引き上げる。幅（gapHi - gapLo）はそのまま保つので、
+  // 「どの組も最低 MIN_GAP は空く」だけで、間隔のばらつきは失われない。
+  const spread = gapHi - gapLo;
+  const lo = Math.max(gapLo, MIN_GAP);
+
   for (let i = 0; i < attempts; i += 1) {
     const angle = rand() * Math.PI * 2;
-    const gap = Math.round(between(gapLo, gapHi));
+    const gap = Math.round(between(lo, lo + spread));
     const jitterX = between(-10, 10);
     const jitterY = between(-10, 10);
 
     const rectAt = (distance) => ({
+      ...size,
       base,
       name,
       x: Math.round(cx + Math.cos(angle) * distance - size.w / 2 + jitterX),
       y: Math.round(cy + Math.sin(angle) * distance - size.h / 2 + jitterY),
-      w: size.w,
-      h: size.h,
     });
 
     const isCrystal = base === CRYSTAL_BASE;
@@ -348,36 +432,43 @@ async function fillGaps(targetCount) {
 }
 
 /**
- * 最小スマホ画面にもクリスタルが必ず1つ入るようにする。
+ * パネルの上下のクリスタルを先に確保する。
  *
- * キープアウトの下の帯は約50pxしかないので、あとから空きを探しても取れない。
- * 島を撒く前に先に置いて場所を確保する。40x40 の accent-small なら確実に収まる。
+ * どの枠も帯が数十pxしかないので、あとから空きを探しても取れない。
+ * 島を撒く前に置いて場所を押さえる（以降のモチーフはここを避ける）。
  */
-async function reserveSmallPhoneCrystals() {
-  const band = SMALL_PHONE_CRYSTAL_BAND;
-  const name = "accent-small";
-  const size = await assetSize(CRYSTAL_BASE, name);
+async function reserveCrystalSlots() {
+  const reserved = [];
+  for (const slot of CRYSTAL_SLOTS) {
+    const size = await assetSize(CRYSTAL_BASE, slot.name);
+    let done = null;
 
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const worldX = between(band.x0, band.x1 - size.w);
-    const rect = {
-      base: CRYSTAL_BASE,
-      name,
-      x: Math.round(((worldX % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH),
-      y: Math.round(between(band.y0, band.y1 - size.h)),
-      w: size.w,
-      h: size.h,
-    };
-    if (!fits(rect, 8) || !clearOfUiPanel(rect)) continue;
-    placed.push(rect);
-    return rect;
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const worldX = between(slot.x0, slot.x1 - size.w);
+      const rect = {
+        ...size,
+        base: CRYSTAL_BASE,
+        name: slot.name,
+        x: Math.round(((worldX % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH),
+        y: Math.round(between(slot.y0, slot.y1)),
+      };
+      if (!fits(rect, MIN_GAP)) continue;
+      // above-near は「パネルの裏に完全に隠れる」ことが前提の枠なので、
+      // キープアウト（＝パネルに掛からないこと）の対象から外す。
+      if (!slot.behindPanel && !clearOfUiPanel(rect)) continue;
+      placed.push(rect);
+      done = rect;
+      break;
+    }
+
+    if (!done) console.log(`WARNING: could not reserve crystal slot "${slot.key}"`);
+    else reserved.push({ ...slot, rect: done });
   }
-  return null;
+  return reserved;
 }
 
 async function build() {
-  const reserved = await reserveSmallPhoneCrystals();
-  if (!reserved) console.log("WARNING: could not reserve a crystal for the smallest phone");
+  await reserveCrystalSlots();
 
   // 区画はスマホのビューポート（〜390x844）より小さめに取り、
   // どの位置を切り取っても複数のモチーフが入るようにする。
