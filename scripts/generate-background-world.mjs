@@ -34,8 +34,41 @@ const WORLD_HEIGHT = 1620;
  * x をトーラス（円環）として扱う。こうするとタイル右端をまたぐモチーフが
  * 左端に回り込み、繰り返しても継ぎ目が出ない。
  */
-const TILE_REPEATS = Number(process.env.TILE_REPEATS ?? 1);
+const TILE_REPEATS = Number(process.env.TILE_REPEATS ?? 2);
 const TILE_WIDTH = Math.round(WORLD_WIDTH / TILE_REPEATS);
+
+/**
+ * 同じアセットが近くに2つ並ぶと、そこだけ人工的に見えてしまう。
+ * スマホ幅（375〜430）より大きい距離を空けることで、
+ * 同じ絵が1画面に2つ入ることをほぼ無くす。
+ */
+const SAME_ASSET_MIN_DISTANCE = 470;
+
+/**
+ * UIパネルのキープアウト（クリスタル専用）。
+ *
+ * カメラはワールド中央固定なので、ビューポート (vw, vh) が映すのは
+ * x = 1440 ± vw/2、y = 810 ± vh/2。ここに `.stack`（パネル＋言語トグル）が
+ * 重なる範囲を、スマホ5サイズ × 本番4ページで実測して和を取った値が下記。
+ *
+ *   home/ta   x[1280,1600] y[476, 969]   (.stackMenu = 320px)
+ *   ranking   x[1241,1639] y[476, 905]   (.stackWide = 440px)
+ *   result    x[1265,1615] y[476,1082]   (.stack     = 350px)
+ *   → 和 x[1241,1639] y[476,1082]
+ *
+ * これにパネルの落ち影（6px 12px）とクリスタルの drop-shadow ぶんの余裕を足す。
+ * セル系モチーフはパネルに重なってよいので、この判定はクリスタルにだけ効かせる。
+ *
+ * 注意: x の幅（414px）は最小スマホの幅 375px より広い。つまり最小画面では
+ * パネルの左右に逃げ場が無く、クリスタルは上下の帯にしか置けない。
+ */
+const UI_KEEPOUT = { x0: 1233, x1: 1647, y0: 468, y1: 1094 };
+
+/**
+ * 最小スマホ（375x667）が映すのは y[477,1144]。キープアウト下端が 1094 なので、
+ * クリスタルを置ける帯はその下の約50pxしかない。ここを先に確保する。
+ */
+const SMALL_PHONE_CRYSTAL_BAND = { x0: 1258, x1: 1622, y0: 1098, y1: 1150 };
 
 /** 確認画像のファイル名につける識別子（試作の比較用） */
 const SUFFIX = TILE_REPEATS > 1 ? `-x${TILE_REPEATS}` : "-x1";
@@ -141,6 +174,39 @@ function touchesWorld(rect) {
   return rect.y < WORLD_HEIGHT && rect.y + rect.h > 0;
 }
 
+/** 同じアセットが近くに無いか。x はトーラスなので左右にずらした位置も見る。 */
+function farFromSameAsset(rect) {
+  for (const other of placed) {
+    if (other.name !== rect.name) continue;
+    for (const shift of [-TILE_WIDTH, 0, TILE_WIDTH]) {
+      const ox = other.x + shift;
+      const dx = Math.max(ox - (rect.x + rect.w), rect.x - (ox + other.w), 0);
+      const dy = Math.max(other.y - (rect.y + rect.h), rect.y - (other.y + other.h), 0);
+      if (Math.hypot(dx, dy) < SAME_ASSET_MIN_DISTANCE) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * クリスタルがUIパネルに掛からないか。
+ * 配置はタイル座標なので、ワールド座標のキープアウトを各タイル位置へ写して判定する。
+ */
+function clearOfUiPanel(rect) {
+  for (let k = -1; k <= TILE_REPEATS; k += 1) {
+    const x = rect.x + k * TILE_WIDTH;
+    if (
+      x < UI_KEEPOUT.x1 &&
+      x + rect.w > UI_KEEPOUT.x0 &&
+      rect.y < UI_KEEPOUT.y1 &&
+      rect.y + rect.h > UI_KEEPOUT.y0
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * 島の中心へ向かって「落として」配置する。
  *
@@ -164,10 +230,16 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
       h: size.h,
     });
 
+    const isCrystal = base === CRYSTAL_BASE;
+
     let settled = null;
     for (let distance = maxReach; distance >= 0; distance -= 6) {
       const rect = rectAt(distance);
       if (!fits(rect, gap)) break;
+      // 制約を満たさない位置は「そこで止まる」のではなく素通りさせる。
+      // 内側にもっと良い位置があるかもしれないので、探索は続ける。
+      if (!farFromSameAsset(rect)) continue;
+      if (isCrystal && !clearOfUiPanel(rect)) continue;
       settled = rect;
     }
 
@@ -275,7 +347,38 @@ async function fillGaps(targetCount) {
   }
 }
 
+/**
+ * 最小スマホ画面にもクリスタルが必ず1つ入るようにする。
+ *
+ * キープアウトの下の帯は約50pxしかないので、あとから空きを探しても取れない。
+ * 島を撒く前に先に置いて場所を確保する。40x40 の accent-small なら確実に収まる。
+ */
+async function reserveSmallPhoneCrystals() {
+  const band = SMALL_PHONE_CRYSTAL_BAND;
+  const name = "accent-small";
+  const size = await assetSize(CRYSTAL_BASE, name);
+
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const worldX = between(band.x0, band.x1 - size.w);
+    const rect = {
+      base: CRYSTAL_BASE,
+      name,
+      x: Math.round(((worldX % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH),
+      y: Math.round(between(band.y0, band.y1 - size.h)),
+      w: size.w,
+      h: size.h,
+    };
+    if (!fits(rect, 8) || !clearOfUiPanel(rect)) continue;
+    placed.push(rect);
+    return rect;
+  }
+  return null;
+}
+
 async function build() {
+  const reserved = await reserveSmallPhoneCrystals();
+  if (!reserved) console.log("WARNING: could not reserve a crystal for the smallest phone");
+
   // 区画はスマホのビューポート（〜390x844）より小さめに取り、
   // どの位置を切り取っても複数のモチーフが入るようにする。
   const islands = seedIslands(430, 380);
