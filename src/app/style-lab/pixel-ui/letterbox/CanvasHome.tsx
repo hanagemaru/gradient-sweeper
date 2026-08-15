@@ -1,16 +1,33 @@
 import { PixelButton, PixelButtonGroup, PixelPanel } from "@/components/ui/PixelUI";
-import { BACKGROUND_WORLD, WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/background-world";
+import {
+  BACKGROUND_WORLD,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  type BackgroundPlacement,
+} from "@/lib/background-world";
 import type { LetterboxVariant } from "./variants";
 import styles from "./canvas.module.css";
+
+export type WorldData = {
+  items: BackgroundPlacement[];
+  width: number;
+  height: number;
+};
+
+const DEFAULT_WORLD: WorldData = {
+  items: BACKGROUND_WORLD,
+  width: WORLD_WIDTH,
+  height: WORLD_HEIGHT,
+};
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
 
-function World({ className }: { className: string }) {
+function World({ className, world }: { className: string; world: WorldData }) {
   return (
-    <div className={className} style={{ width: WORLD_WIDTH, height: WORLD_HEIGHT }}>
-      {BACKGROUND_WORLD.map((p, index) => (
+    <div className={className} style={{ width: world.width, height: world.height }}>
+      {world.items.map((p, index) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={`${p.name}-${index}`}
@@ -31,14 +48,22 @@ function World({ className }: { className: string }) {
  * containing block になる（CSS仕様）。これで .backdrop の inset:0 が
  * 実ビューポートではなくこのキャンバスの矩形を基準にする。
  */
-export function CanvasHome({ variant, tall = false }: { variant: LetterboxVariant; tall?: boolean }) {
+export function CanvasHome({
+  variant,
+  tall = false,
+  world = DEFAULT_WORLD,
+}: {
+  variant: LetterboxVariant;
+  tall?: boolean;
+  world?: WorldData;
+}) {
   return (
     <div className={cx(styles.stage, styles[variant.stageClass])}>
-      {variant.bleed && <World className={styles.bleedWorld} />}
+      {variant.bleed && <World className={styles.bleedWorld} world={world} />}
 
       <div className={cx(styles.canvas, variant.framed && styles.canvasFramed)}>
         <div className={styles.backdrop} aria-hidden="true">
-          <World className={styles.world} />
+          <World className={styles.world} world={world} />
         </div>
 
         <div className={styles.scroll} data-testid="canvas-scroll">

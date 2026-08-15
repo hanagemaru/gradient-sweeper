@@ -7,6 +7,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LETTERBOX_VARIANTS } from "./variants";
+import { SEEDS } from "./seed-data";
 import styles from "../pixel-ui.module.css";
 
 export const metadata: Metadata = {
@@ -43,6 +44,11 @@ export default function LetterboxComparePage() {
             （キャンバス内でスクロールする）も見られます。
           </p>
           <p className={styles.lede}>
+            <strong>余白は黒べたに決定済みです。</strong>
+            以下の4案は決定までの比較記録として残していますが、
+            以降の検討は <Link href="/style-lab/pixel-ui/letterbox/seeds/1">背景モチーフのシード比較</Link> の方です。
+          </p>
+          <p className={styles.lede}>
             このページ自体は検証用の使い捨てです。方向性が決まった時点で削除し、
             本番の <code>PixelScene</code>・<code>pixel-ui.module.css</code>・
             背景ワールド生成スクリプトを作り直します。
@@ -55,6 +61,29 @@ export default function LetterboxComparePage() {
             <Link href="/style-lab" className={styles.labLink}>
               style-lab トップ →
             </Link>
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.sectionHeading}>
+            <span>背景モチーフのシード比較</span>
+            <small>余白=黒べた固定 / 5パターン</small>
+          </div>
+          <p className={styles.summary}>
+            同じ配置ルール（島単位で組む・最小すきま15px・パネルにクリスタルを重ねない等）を、
+            乱数のシードだけ変えて5パターン生成しました。キャンバスが390x844に固定されたことで、
+            UIパネルの位置も1つに決まり、機種ごとの帯分けが不要になっています。
+          </p>
+          <div className={styles.actionRow}>
+            {SEEDS.map((seed) => (
+              <Link
+                key={seed.id}
+                href={`/style-lab/pixel-ui/letterbox/seeds/${seed.id}`}
+                className={styles.labLink}
+              >
+                {seed.label} →
+              </Link>
+            ))}
           </div>
         </section>
 

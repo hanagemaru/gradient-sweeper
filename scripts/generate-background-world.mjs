@@ -23,9 +23,19 @@ const PUBLIC_DIR = "public";
 const REVIEW_DIR =
   process.env.REVIEW_DIR ?? "/tmp/gradient-sweeper-background-review";
 
+/**
+ * CANVAS_MODE=1: タスクG(固定キャンバス+レターボックス)の検討用モード。
+ *
+ * カメラ方式をやめて390x844の固定キャンバス1枚だけを描く前提に切り替える。
+ * ワールド=キャンバスなのでタイリングも複数ビューポート対応も不要になり、
+ * UI_KEEPOUT・CRYSTAL_SLOTS も単一の実測値だけで足りる。
+ * 本番の background-world.ts は書き換えない（OUT_FILE で別ファイルへ逃がす）。
+ */
+const CANVAS_MODE = process.env.CANVAS_MODE === "1";
+
 // デスクトップまでカメラで覆えるサイズ。1920x1080 / 2560x1440 いずれも内側に収まる。
-const WORLD_WIDTH = 2880;
-const WORLD_HEIGHT = 1620;
+const WORLD_WIDTH = CANVAS_MODE ? 390 : 2880;
+const WORLD_HEIGHT = CANVAS_MODE ? 844 : 1620;
 
 /**
  * 横方向のタイリング回数。1 なら繰り返しなしの一点物。
@@ -34,7 +44,7 @@ const WORLD_HEIGHT = 1620;
  * x をトーラス（円環）として扱う。こうするとタイル右端をまたぐモチーフが
  * 左端に回り込み、繰り返しても継ぎ目が出ない。
  */
-const TILE_REPEATS = Number(process.env.TILE_REPEATS ?? 2);
+const TILE_REPEATS = CANVAS_MODE ? 1 : Number(process.env.TILE_REPEATS ?? 2);
 const TILE_WIDTH = Math.round(WORLD_WIDTH / TILE_REPEATS);
 
 /**
@@ -42,7 +52,9 @@ const TILE_WIDTH = Math.round(WORLD_WIDTH / TILE_REPEATS);
  * スマホ幅（375〜430）より大きい距離を空けることで、
  * 同じ絵が1画面に2つ入ることをほぼ無くす。
  */
-const SAME_ASSET_MIN_DISTANCE = 470;
+// CANVAS_MODE はキャンバス幅(390)自体がスマホ幅なので、470のままだと
+// キャンバス全域でほぼ同じ絵を2つ置けなくなり、逆にスカスカになる。縮める。
+const SAME_ASSET_MIN_DISTANCE = CANVAS_MODE ? 160 : 470;
 
 /**
  * モチーフ同士の最小すきま。
@@ -71,7 +83,16 @@ const MIN_GAP = 15;
  * 注意: x の幅（414px）は最小スマホの幅 375px より広い。つまり最小画面では
  * パネルの左右に逃げ場が無く、クリスタルは上下の帯にしか置けない。
  */
-const UI_KEEPOUT = { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
+/**
+ * CANVAS_MODE のキープアウト。
+ *
+ * 固定キャンバス(390x844)では画面サイズが1つしかないので、実測も1回で済む。
+ * `/style-lab/pixel-ui/letterbox/black` を 390x844(スケール1、レターボックス無し)で
+ * 実測した `.panel` の矩形は x[35,355] y[108,392.6]。左右10px・上下10pxの余裕を足す。
+ */
+const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 98, y1: 403 };
+
+const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
 /**
  * パネルの上下に必ずクリスタルを1つずつ見せるための予約枠。
@@ -104,26 +125,52 @@ const UI_KEEPOUT = { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
  * 3枠は種類を重複させない。同時に見えるのは (above-near, below) か
  * (above-far, below) のどちらかなので、これで1画面に同じクリスタルは並ばない。
  */
-const CRYSTAL_SLOTS = [
-  // cluster-wide: 120x80、不透明部分は (3,35) から 114x45。
-  // 不透明部分が y[517,572] に入る → 375 ではパネル上端 577 の上、390 以上では裏。
-  { key: "above-near", name: "cluster-wide", x0: 1281, x1: 1599, y0: 482, y1: 492, behindPanel: true },
-  // cluster-medium: 110x90、不透明部分は (9,6) から 92x84。
-  // 不透明部分の下端をキープアウト上端 468 以内に収め、390 の可視上端 388 に寄せる。
-  { key: "above-far", name: "cluster-medium", x0: 1250, x1: 1630, y0: 374, y1: 378, behindPanel: false },
-  // accent-small: 40x40、不透明部分は (3,7) から 34x33。
-  // パネル下端の下（1096〜）と 375 の可視下端 1144 の間に完全に収まる唯一のサイズ。
-  { key: "below", name: "accent-small", x0: 1250, x1: 1630, y0: 1089, y1: 1092, behindPanel: false },
+/**
+ * CANVAS_MODE の予約枠。画面サイズが1つしかないので、上下1枠ずつで足りる
+ * （5サイズ分の帯を分ける必要がなくなった＝固定キャンバス化の狙いそのもの）。
+ * 種類は重複させない。
+ */
+const CANVAS_CRYSTAL_SLOTS = [
+  // パネル上端98(キープアウト)の上、y[30,80]の帯。空きが75pxしかないので小型のみ。
+  { key: "above", name: "accent-small", x0: 40, x1: 350, y0: 30, y1: 80, behindPanel: false },
+  // パネル下端403(キープアウト)の下は広い（〜844）。大きめを1つ。
+  { key: "below", name: "cluster-medium", x0: 40, x1: 350, y0: 440, y1: 620, behindPanel: false },
 ];
+
+const CRYSTAL_SLOTS = CANVAS_MODE
+  ? CANVAS_CRYSTAL_SLOTS
+  : [
+      // cluster-wide: 120x80、不透明部分は (3,35) から 114x45。
+      // 不透明部分が y[517,572] に入る → 375 ではパネル上端 577 の上、390 以上では裏。
+      { key: "above-near", name: "cluster-wide", x0: 1281, x1: 1599, y0: 482, y1: 492, behindPanel: true },
+      // cluster-medium: 110x90、不透明部分は (9,6) から 92x84。
+      // 不透明部分の下端をキープアウト上端 468 以内に収め、390 の可視上端 388 に寄せる。
+      { key: "above-far", name: "cluster-medium", x0: 1250, x1: 1630, y0: 374, y1: 378, behindPanel: false },
+      // accent-small: 40x40、不透明部分は (3,7) から 34x33。
+      // パネル下端の下（1096〜）と 375 の可視下端 1144 の間に完全に収まる唯一のサイズ。
+      { key: "below", name: "accent-small", x0: 1250, x1: 1630, y0: 1089, y1: 1092, behindPanel: false },
+    ];
 
 /** 確認画像のファイル名につける識別子（試作の比較用） */
 const SUFFIX = TILE_REPEATS > 1 ? `-x${TILE_REPEATS}` : "-x1";
 
 /** 島の核になる大型形状 */
-const CORE_SHAPES = [
+const ALL_CORE_SHAPES = [
   "headland", "terrace", "ridge-wide", "bluff-tall",
   "mega-l", "mega-step", "mega-wide", "mega-tall",
 ];
+
+/**
+ * CANVAS_MODE 用の核形状。
+ *
+ * 元の CORE_SHAPES は幅320〜576pxあり、キャンバス幅390pxの中では
+ * 「核」というより画面のほぼ全部を占める1枚絵になってしまい、ほぼ置けずに
+ * 棄却され続ける（実測: 320px幅の mega-wide 単体でも成功率2/50）。
+ * SATELLITE_SHAPES（最大192px、キャンバス幅の半分程度）を核としても使う。
+ */
+const CANVAS_CORE_SHAPES = ["square", "wide", "tall", "l", "l-rotated", "step"];
+
+const CORE_SHAPES = CANVAS_MODE ? CANVAS_CORE_SHAPES : ALL_CORE_SHAPES;
 
 /** 核の周りに従える中小形状 */
 const SATELLITE_SHAPES = ["square", "wide", "tall", "l", "l-rotated", "step"];
@@ -162,7 +209,7 @@ function mulberry32(seed) {
   };
 }
 
-const rand = mulberry32(20260815);
+const rand = mulberry32(Number(process.env.SEED ?? 20260815));
 const between = (lo, hi) => lo + rand() * (hi - lo);
 const pick = (list) => list[Math.floor(rand() * list.length)];
 
@@ -286,6 +333,19 @@ function clearOfUiPanel(rect) {
   }
   return true;
 }
+
+/**
+ * maxReach（島の種からどれだけ離れた位置まで探すか）は、もとの1440px幅タイル
+ * を基準に決めた値。CANVAS_MODE のタイル幅は390pxしかない。
+ *
+ * `settleToward` は「いちばん遠い距離から fits を試し、最初に失敗したら即 break」
+ * という探索なので、reach がトーラス周期(390)の半分に近い・それを超えると
+ * 「遠い」はずの候補がラップして逆側の近くに戻ってしまい、実質どの角度でも
+ * 遠端が何かに衝突 → 1回も内側を試せずに settled=null で終わる
+ * （実測: reach=300のままだと核の設置成功率2〜4/50）。
+ * 用途ごとに、周期の半分(195)より十分小さい固定値へ個別に差し替える。
+ */
+const reach = (n, canvasValue) => (CANVAS_MODE ? canvasValue : n);
 
 /**
  * 島の中心へ向かって「落として」配置する。
@@ -421,12 +481,12 @@ async function fillGaps(targetCount) {
     if (useCrystal) {
       const name = pickWeighted(CRYSTAL_WEIGHTS, "name");
       const size = await assetSize(CRYSTAL_BASE, name);
-      settleToward(CRYSTAL_BASE, name, size, spot.x, spot.y, 12, 120, 4, 14);
+      settleToward(CRYSTAL_BASE, name, size, spot.x, spot.y, 12, reach(120, 60), 4, 14);
     } else {
       const shape = useCore ? pick(CORE_SHAPES) : pick(SATELLITE_SHAPES);
       const name = `${pickPalette()}-${shape}`;
       const size = await assetSize(AUTOTILE_BASE, name);
-      settleToward(AUTOTILE_BASE, name, size, spot.x, spot.y, 14, 200, 8, 30);
+      settleToward(AUTOTILE_BASE, name, size, spot.x, spot.y, 14, reach(200, 90), 8, 30);
     }
   }
 }
@@ -472,7 +532,9 @@ async function build() {
 
   // 区画はスマホのビューポート（〜390x844）より小さめに取り、
   // どの位置を切り取っても複数のモチーフが入るようにする。
-  const islands = seedIslands(430, 380);
+  // CANVAS_MODE はワールド=キャンバスそのものなので、区画をさらに小さくして
+  // 390x844の中に複数の島が収まるようにする。
+  const islands = CANVAS_MODE ? seedIslands(150, 170) : seedIslands(430, 380);
 
   for (const island of islands) {
     // 1. 島の核。大きな島ほど核も大きい形状から選ぶ。
@@ -480,7 +542,7 @@ async function build() {
     const coreSize = await assetSize(AUTOTILE_BASE, coreName);
     // 核は種の近くに置きたいが、隣の島が既に占めている場合もあるので、
     // 少し離れた位置まで探して島ごと捨てないようにする。
-    const core = settleToward(AUTOTILE_BASE, coreName, coreSize, island.x, island.y, 26, 300, 18, 54);
+    const core = settleToward(AUTOTILE_BASE, coreName, coreSize, island.x, island.y, 26, reach(300, 140), 18, 54);
     if (!core) continue;
 
     // 2. 衛星セル。島ごとに個数を大きく変えることで、密集した群島と
@@ -490,7 +552,7 @@ async function build() {
       const name = `${pickPalette()}-${pick(SATELLITE_SHAPES)}`;
       const size = await assetSize(AUTOTILE_BASE, name);
       // 島の中の隙間は小さく取り、寄り添って見えるようにする
-      settleToward(AUTOTILE_BASE, name, size, island.x, island.y, 22, 400, 5, 20);
+      settleToward(AUTOTILE_BASE, name, size, island.x, island.y, 22, reach(400, 110), 5, 20);
     }
 
     // 3. クリスタル。セルの縁のくぼみに小さな隙間で挟み込む。
@@ -503,13 +565,16 @@ async function build() {
       const name = pickWeighted(remaining, "name");
       usedCrystals.add(name);
       const size = await assetSize(CRYSTAL_BASE, name);
-      settleToward(CRYSTAL_BASE, name, size, island.x, island.y, 30, 400, 3, 12);
+      settleToward(CRYSTAL_BASE, name, size, island.x, island.y, 30, reach(400, 90), 3, 12);
     }
   }
 
   // タイル幅によらず密度を揃える。狭いタイルほど回り込み判定で棄却されやすく、
   // 島を撒くだけでは中央に大きな空白が残ることがある。
-  await fillGaps(Math.round((TILE_WIDTH * WORLD_HEIGHT) / 60000));
+  // CANVAS_MODE は「広いワールドの一部を覗く」前提が無く、画面そのものが
+  // 全域なので、元の密度(1/60000px²)だと余白だらけに見える。総柄にするため濃くする。
+  const density = CANVAS_MODE ? 3200 : 60000;
+  await fillGaps(Math.round((TILE_WIDTH * WORLD_HEIGHT) / density));
 
   return placed;
 }
@@ -686,6 +751,10 @@ async function renderReview(items) {
       .toFile(path.join(REVIEW_DIR, `seam${SUFFIX}.png`));
   }
 
+  // CANVAS_MODE はワールド=キャンバスそのものなので、切り取りは不要
+  // （world-overview がそのまま最終的な見た目になる）。
+  if (CANVAS_MODE) return;
+
   // 各画面比率で中央を切り取る = 実際のカメラの見え方
   const VIEWPORTS = [
     ["iphone-se-375x667", 375, 667],
@@ -713,9 +782,12 @@ const tileItems = await build();
 const items = expandTiles(tileItems);
 
 // WRITE_WORLD=0 のときは確認画像だけ作り、本番の配置は差し替えない（試作用）
+// OUT_FILE で出力先を変えられる（CANVAS_MODE の複数シード比較で使う）。
+const OUT_FILE = process.env.OUT_FILE ?? "src/lib/background-world.ts";
 if (process.env.WRITE_WORLD !== "0") {
-  writeFileSync("src/lib/background-world.ts", serialise(items));
-  console.log("-> src/lib/background-world.ts");
+  mkdirSync(path.dirname(OUT_FILE), { recursive: true });
+  writeFileSync(OUT_FILE, serialise(items));
+  console.log(`-> ${OUT_FILE}`);
 }
 
 const crystals = items.filter((p) => p.base === CRYSTAL_BASE).length;
