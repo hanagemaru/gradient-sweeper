@@ -27,6 +27,19 @@ const REVIEW_DIR =
 const WORLD_WIDTH = 2880;
 const WORLD_HEIGHT = 1620;
 
+/**
+ * 横方向のタイリング回数。1 なら繰り返しなしの一点物。
+ *
+ * 配置は1タイル分（TILE_WIDTH x WORLD_HEIGHT）の座標系だけで行い、
+ * x をトーラス（円環）として扱う。こうするとタイル右端をまたぐモチーフが
+ * 左端に回り込み、繰り返しても継ぎ目が出ない。
+ */
+const TILE_REPEATS = Number(process.env.TILE_REPEATS ?? 1);
+const TILE_WIDTH = Math.round(WORLD_WIDTH / TILE_REPEATS);
+
+/** 確認画像のファイル名につける識別子（試作の比較用） */
+const SUFFIX = TILE_REPEATS > 1 ? `-x${TILE_REPEATS}` : "-x1";
+
 /** 島の核になる大型形状 */
 const CORE_SHAPES = [
   "headland", "terrace", "ridge-wide", "bluff-tall",
@@ -98,29 +111,34 @@ async function assetSize(base, name) {
 
 const placed = [];
 
-/** 配置済みのどれとも重ならないか。margin は呼び出しごとに変えて等間隔感を消す。 */
+/**
+ * 配置済みのどれとも重ならないか。margin は呼び出しごとに変えて等間隔感を消す。
+ *
+ * x はトーラスなので、タイル1枚ぶん左右にずらした位置でも判定する。
+ * これをやらないとタイルの右端と左端のモチーフが、繰り返したときに重なってしまう。
+ */
 function fits(rect, margin) {
   for (const other of placed) {
-    if (
-      rect.x < other.x + other.w + margin &&
-      rect.x + rect.w + margin > other.x &&
-      rect.y < other.y + other.h + margin &&
-      rect.y + rect.h + margin > other.y
-    ) {
-      return false;
+    const overlapsY =
+      rect.y < other.y + other.h + margin && rect.y + rect.h + margin > other.y;
+    if (!overlapsY) continue;
+
+    for (const shift of [-TILE_WIDTH, 0, TILE_WIDTH]) {
+      const ox = other.x + shift;
+      if (rect.x < ox + other.w + margin && rect.x + rect.w + margin > ox) {
+        return false;
+      }
     }
   }
   return true;
 }
 
-/** ワールドに一部でも掛かっていれば採用（端で見切れる配置を許可する） */
+/**
+ * 縦方向にワールドへ掛かっていれば採用。
+ * x はトーラスなのでどの値でも有効（書き出し時に横へ複製される）。
+ */
 function touchesWorld(rect) {
-  return (
-    rect.x < WORLD_WIDTH &&
-    rect.y < WORLD_HEIGHT &&
-    rect.x + rect.w > 0 &&
-    rect.y + rect.h > 0
-  );
+  return rect.y < WORLD_HEIGHT && rect.y + rect.h > 0;
 }
 
 /**
@@ -154,6 +172,8 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
     }
 
     if (settled && touchesWorld(settled)) {
+      // x をタイル内へ正規化し、配置リストを正準形にしておく
+      settled.x = ((settled.x % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH;
       placed.push(settled);
       return settled;
     }
@@ -172,8 +192,9 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
  */
 function seedIslands(strideX, strideY) {
   const seeds = [];
-  // 端をまたぐ島も作るため、ワールドの外側の区画も1列ぶん回す
-  for (let gx = -1; gx * strideX < WORLD_WIDTH + strideX; gx += 1) {
+  // x はタイル内だけを走査する（トーラスなので端の外側は不要）。
+  // 縦は繰り返さないので、上下は外側の区画も1列ぶん回して端をまたがせる。
+  for (let gx = 0; gx * strideX < TILE_WIDTH; gx += 1) {
     for (let gy = -1; gy * strideY < WORLD_HEIGHT + strideY; gy += 1) {
       seeds.push({
         x: gx * strideX + between(0, strideX),
@@ -188,6 +209,70 @@ function seedIslands(strideX, strideY) {
     [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
   }
   return seeds;
+}
+
+/** 配置済みの矩形までの最短距離（x はトーラス）。空き具合の指標に使う。 */
+function emptiness(px, py) {
+  let nearest = Infinity;
+  for (const r of placed) {
+    let best = Infinity;
+    for (const shift of [-TILE_WIDTH, 0, TILE_WIDTH]) {
+      const rx = r.x + shift;
+      const dx = Math.max(rx - px, 0, px - (rx + r.w));
+      const dy = Math.max(r.y - py, 0, py - (r.y + r.h));
+      best = Math.min(best, Math.hypot(dx, dy));
+    }
+    nearest = Math.min(nearest, best);
+  }
+  return nearest;
+}
+
+/**
+ * 空いている場所を探して埋める。
+ *
+ * 島を撒くだけだと、タイル幅が狭いほど回り込み判定で棄却されて密度が落ち、
+ * カメラが常に映すワールド中央が広い空白になることがある。
+ * 候補点をいくつか撒いて「最も空いている点」を選ぶことで、
+ * 格子に頼らずに穴だけを埋められる。
+ */
+async function fillGaps(targetCount) {
+  let guard = 0;
+  while (placed.length < targetCount && guard < targetCount * 12) {
+    guard += 1;
+
+    // 候補をばらまき、いちばん空いている点を選ぶ
+    let spot = null;
+    let spotScore = -1;
+    for (let i = 0; i < 40; i += 1) {
+      const px = between(0, TILE_WIDTH);
+      const py = between(40, WORLD_HEIGHT - 40);
+      const score = emptiness(px, py);
+      if (score > spotScore) { spotScore = score; spot = { x: px, y: py }; }
+    }
+    if (!spot) break;
+
+    // 空きが大きいところには大きめの形状を置く
+    const useCore = spotScore > 240 && rand() < 0.55;
+    // クリスタルは単体で浮いていると不自然なので、セルのすぐ脇に寄せられる
+    // ときだけ置く。数も全体の2割程度で打ち止めにする。
+    const crystalCount = placed.filter((p) => p.base === CRYSTAL_BASE).length;
+    const useCrystal =
+      !useCore &&
+      spotScore < 90 &&
+      crystalCount < targetCount * 0.2 &&
+      rand() < 0.25;
+
+    if (useCrystal) {
+      const name = pickWeighted(CRYSTAL_WEIGHTS, "name");
+      const size = await assetSize(CRYSTAL_BASE, name);
+      settleToward(CRYSTAL_BASE, name, size, spot.x, spot.y, 12, 120, 4, 14);
+    } else {
+      const shape = useCore ? pick(CORE_SHAPES) : pick(SATELLITE_SHAPES);
+      const name = `${pickPalette()}-${shape}`;
+      const size = await assetSize(AUTOTILE_BASE, name);
+      settleToward(AUTOTILE_BASE, name, size, spot.x, spot.y, 14, 200, 8, 30);
+    }
+  }
 }
 
 async function build() {
@@ -228,7 +313,32 @@ async function build() {
     }
   }
 
+  // タイル幅によらず密度を揃える。狭いタイルほど回り込み判定で棄却されやすく、
+  // 島を撒くだけでは中央に大きな空白が残ることがある。
+  await fillGaps(Math.round((TILE_WIDTH * WORLD_HEIGHT) / 60000));
+
   return placed;
+}
+
+/**
+ * 1タイル分の配置を、ワールド全体へ横に複製する。
+ *
+ * k = 0..TILE_REPEATS-1 は常に出す。加えて k = -1 と k = TILE_REPEATS は、
+ * ずらした矩形がワールドに掛かるものだけ出す（タイル境界をまたぐモチーフの
+ * 見切れ分）。全部出すとDOMノードが無駄に増える。
+ */
+function expandTiles(tileItems) {
+  const out = [];
+  for (let k = -1; k <= TILE_REPEATS; k += 1) {
+    for (const p of tileItems) {
+      const x = p.x + k * TILE_WIDTH;
+      const inside = x < WORLD_WIDTH && x + p.w > 0;
+      const isInteriorTile = k >= 0 && k < TILE_REPEATS;
+      if (!isInteriorTile && !inside) continue;
+      out.push({ ...p, x });
+    }
+  }
+  return out;
 }
 
 function serialise(items) {
@@ -319,7 +429,68 @@ async function renderReview(items) {
     .extract({ left: PAD, top: PAD, width: WORLD_WIDTH, height: WORLD_HEIGHT })
     .png()
     .toBuffer();
-  writeFileSync(path.join(REVIEW_DIR, "world-overview.png"), world);
+  writeFileSync(path.join(REVIEW_DIR, `world-overview${SUFFIX}.png`), world);
+
+  if (TILE_REPEATS > 1) {
+    // 継ぎ目の検査: タイリングの定義そのもの。重なる全領域で
+    // pixel(x, y) === pixel(x + TILE_WIDTH, y) なら継ぎ目は原理的に存在しない。
+    const { data, info } = await sharp(world)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    let mismatches = 0;
+    for (let y = 0; y < info.height; y += 1) {
+      for (let x = 0; x + TILE_WIDTH < info.width; x += 1) {
+        const a = (y * info.width + x) * info.channels;
+        const b = (y * info.width + x + TILE_WIDTH) * info.channels;
+        if (
+          data[a] !== data[b] ||
+          data[a + 1] !== data[b + 1] ||
+          data[a + 2] !== data[b + 2]
+        ) {
+          mismatches += 1;
+        }
+      }
+    }
+    console.log(
+      mismatches === 0
+        ? `seam check: PASS (tile ${TILE_WIDTH}px repeats cleanly)`
+        : `seam check: FAIL (${mismatches} mismatching pixels)`,
+    );
+
+    // タイル境界に目印を入れた版。繰り返しのリズムを目で判断するため。
+    const marks = [];
+    for (let k = 1; k < TILE_REPEATS; k += 1) {
+      marks.push({
+        input: {
+          create: {
+            width: 3,
+            height: WORLD_HEIGHT,
+            channels: 4,
+            background: { r: 255, g: 90, b: 60, alpha: 1 },
+          },
+        },
+        left: k * TILE_WIDTH,
+        top: 0,
+      });
+    }
+    await sharp(world)
+      .composite(marks)
+      .png()
+      .toFile(path.join(REVIEW_DIR, `world-overview${SUFFIX}-marked.png`));
+
+    // 継ぎ目付近の拡大（境界をまたぐ帯）
+    const seamW = 700;
+    await sharp(world)
+      .extract({
+        left: Math.max(0, TILE_WIDTH - seamW / 2),
+        top: 0,
+        width: seamW,
+        height: WORLD_HEIGHT,
+      })
+      .png()
+      .toFile(path.join(REVIEW_DIR, `seam${SUFFIX}.png`));
+  }
 
   // 各画面比率で中央を切り取る = 実際のカメラの見え方
   const VIEWPORTS = [
@@ -339,17 +510,22 @@ async function renderReview(items) {
         height: h,
       })
       .png()
-      .toFile(path.join(REVIEW_DIR, `crop-${name}.png`));
+      .toFile(path.join(REVIEW_DIR, `crop-${name}${SUFFIX}.png`));
   }
   console.log(`review images -> ${REVIEW_DIR}`);
 }
 
-const items = await build();
-writeFileSync("src/lib/background-world.ts", serialise(items));
+const tileItems = await build();
+const items = expandTiles(tileItems);
+
+// WRITE_WORLD=0 のときは確認画像だけ作り、本番の配置は差し替えない（試作用）
+if (process.env.WRITE_WORLD !== "0") {
+  writeFileSync("src/lib/background-world.ts", serialise(items));
+  console.log("-> src/lib/background-world.ts");
+}
 
 const crystals = items.filter((p) => p.base === CRYSTAL_BASE).length;
-console.log(`world: ${WORLD_WIDTH}x${WORLD_HEIGHT}`);
-console.log(`placed: ${items.length} (cells ${items.length - crystals}, crystals ${crystals})`);
-console.log("-> src/lib/background-world.ts");
+console.log(`world: ${WORLD_WIDTH}x${WORLD_HEIGHT}  tile: ${TILE_WIDTH}x${WORLD_HEIGHT} x${TILE_REPEATS}`);
+console.log(`tile items: ${tileItems.length}  ->  world items: ${items.length} (cells ${items.length - crystals}, crystals ${crystals})`);
 
 await renderReview(items);
