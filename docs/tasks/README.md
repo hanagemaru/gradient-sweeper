@@ -27,8 +27,12 @@ docs/tasks/A-particles.md を読んで実装して
 | [D](./D-tests.md) | テスト整備 | 可 |
 | [E](./E-nextjs16.md) | Next.js 16 移行 | **単独で実施** |
 | [F](./F-first-click-safety.md) | 初手保証 | 可 |
+| [G](./G-fixed-canvas-letterbox.md) | 固定キャンバス＋レターボックスの検討 | **Bのマージ後に単独で実施** |
 
 A・B・C・D・F は触るファイルが1つも重ならないので、同時に走らせてよい。
+
+G はレーンBとファイルがほぼ完全に重なるため、PR #10（レーンB）がマージされるまでは
+着手しない。
 
 E は `package-lock.json` が巨大なコンフリクトになるため、他を全部マージしてから単独で行う。
 
