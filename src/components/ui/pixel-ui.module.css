@@ -21,7 +21,8 @@
   position: relative;
   min-height: 100dvh;
   overflow-x: clip;
-  background: linear-gradient(180deg, #d3e2fb 0%, #b9cdf6 55%, #cfe0fb 100%);
+  /* グラデーション本体は .backdrop 側。ここは継ぎ目防止の単色フォールバック。 */
+  background: #c3d4f7;
   font-family: var(--jp-font);
 }
 
@@ -29,12 +30,19 @@
   --jp-font: var(--block-font);
 }
 
+/*
+ * ビューポート固定のカメラ。position:absolute だと高さが .scene に追従するため、
+ * (1) body の min-h-screen(100vh) と .scene の 100dvh がずれる分だけ下端に
+ *     body の白背景が露出し、(2) パネルの伸縮でワールドが再センタリングされてずれた。
+ * fixed にすると常にビューポート全面を塗り、ワールドの原点も画面基準で固定される。
+ */
 .backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  background: linear-gradient(180deg, #d3e2fb 0%, #b9cdf6 55%, #cfe0fb 100%);
 }
 
 .decorativeImage {
@@ -46,7 +54,7 @@
 
 /*
  * 背景ワールド: 画面より大きい1枚の固定ピクセル配置レイヤー。
- * .backdrop (inset:0; overflow:hidden) がカメラのように可視範囲を切り取る。
+ * ビューポート固定の .backdrop がカメラのように可視範囲を切り取る。
  * 中央基準で配置するので、画面が大きいほど周囲がより多く見える。
  * background-size:cover 相当の拡大縮小はしない — 各素材は等倍のまま。
  */
