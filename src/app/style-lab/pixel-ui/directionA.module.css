@@ -1,0 +1,362 @@
+/*
+ * 案A: GLACIER HUD
+ *
+ * ゲーム画面の HUD をそのまま外に持ち出す方向。
+ * 氷原の下地に濃紺パネルという `game.module.css` の構成を各画面に反復させる。
+ * 継続性が最も高いかわりに、情報量の少ない画面では濃紺の面積が重くなりやすい。
+ */
+
+.screen {
+  --navy-950: #061a37;
+  --navy-900: #0a2851;
+  --navy-800: #123f72;
+  --navy-700: #2b6598;
+  --ice-line: #6ca6d2;
+  --amber: #f0a94a;
+
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  padding: 14px 10px 30px;
+  color: #f7fcff;
+  background-color: #e7f8ff;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cpath fill='%2369acd1' fill-opacity='.22' d='M10 18h4v4h-4zM14 22h8v4h-8zM68 52h4v8h-4zM72 56h8v4h-8zM37 79h4v4h-4z'/%3E%3Cpath fill='%23ffffff' fill-opacity='.9' d='M48 9h6v4h-6zM52 13h4v4h-4zM20 62h4v4h-4zM82 28h6v4h-6z'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #f1fcff 0%, #d9f1fb 48%, #edfaff 100%);
+  background-size: 96px 96px, 100% 100%;
+  font-family: "VT323", ui-monospace, monospace;
+}
+
+/* 氷原の稜線。ゲーム画面の ::before と同じ発想で足元に置く */
+.screen::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  bottom: 0;
+  left: 50%;
+  width: 560px;
+  height: 96px;
+  transform: translateX(-50%);
+  opacity: 0.65;
+  background:
+    linear-gradient(90deg, transparent 0 7%, #b9e1f3 7% 19%, transparent 19% 27%, #91c9e5 27% 43%, transparent 43% 51%, #b3dcef 51% 68%, transparent 68% 76%, #93cbe6 76% 90%, transparent 90%),
+    linear-gradient(180deg, transparent 0 54%, #c9e9f6 54% 74%, #edfaff 74%);
+  clip-path: polygon(0 78%, 8% 78%, 8% 62%, 18% 62%, 18% 70%, 27% 70%, 27% 42%, 39% 42%, 39% 65%, 50% 65%, 50% 28%, 61% 28%, 61% 58%, 72% 58%, 72% 45%, 84% 45%, 84% 70%, 100% 70%, 100% 100%, 0 100%);
+}
+
+.inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100%, 390px);
+  margin: 0 auto;
+}
+
+/* ---------- ヘッダー ---------- */
+
+.titleBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 10px 14px 12px;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid var(--ice-line);
+  background: var(--navy-900);
+  box-shadow:
+    inset 0 0 0 2px var(--navy-700),
+    inset 0 -5px 0 #04142d,
+    0 4px 0 #0a3968,
+    4px 8px 0 rgba(37, 99, 146, 0.18);
+}
+
+.titleBar::before,
+.titleBar::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #8fc4e7;
+  background: #2c6496;
+  box-shadow: inset 1px 1px #d5f1ff;
+}
+
+.titleBar::before { left: 3px; }
+.titleBar::after { right: 3px; }
+
+.mark {
+  color: #effcff;
+  font-family: Arial, sans-serif;
+  font-size: 25px;
+  line-height: 1;
+  text-shadow: 2px 2px 0 #3978a9;
+}
+
+.titleWrap {
+  display: block;
+  min-width: 0;
+}
+
+.title {
+  display: block;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.035em;
+  line-height: 0.85;
+  text-shadow: 2px 2px 0 #173d70;
+}
+
+.subtitle {
+  display: block;
+  margin-top: 6px;
+  color: #91c8ed;
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  line-height: 1;
+}
+
+/* ---------- ボタン ---------- */
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 3px solid var(--navy-950);
+  border-radius: 0;
+  color: #f7fcff;
+  background: var(--navy-800);
+  box-shadow:
+    inset 2px 2px 0 #4e83ad,
+    inset -2px -2px 0 var(--navy-950),
+    0 4px 0 #062755;
+  font-family: inherit;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 2px 2px 0 var(--navy-950),
+    inset -2px -2px 0 #4e83ad,
+    0 2px 0 #062755;
+}
+
+.primary { border-top-color: #78b7e4; background: #1b5490; }
+.secondary { border-top-color: #5c9ee8; }
+.tertiary { border-top-color: #d6b26a; background: #0f3260; }
+
+.btnIcon {
+  font-size: 21px;
+  line-height: 1;
+}
+
+.btnLabel { line-height: 1.05; }
+
+.btnMeta {
+  color: #a8cfeb;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- パネル ---------- */
+
+.panel {
+  padding: 11px 11px 13px;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid var(--ice-line);
+  background: var(--navy-900);
+  box-shadow:
+    inset 0 0 0 2px var(--navy-700),
+    inset 0 -5px 0 #04142d,
+    0 4px 0 #0a3968,
+    4px 8px 0 rgba(37, 99, 146, 0.18);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 2px solid #376997;
+  background: #081d3d;
+  box-shadow:
+    inset 2px 2px 0 #1b4775,
+    inset -2px -2px 0 #030d1f;
+}
+
+.rowLabel {
+  color: #91b8dc;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.rowValue {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 2px 2px 0 #020b1c;
+}
+
+.rowMain {
+  border-top-color: #d6b26a;
+}
+
+.rowMain .rowValue {
+  color: var(--amber);
+  font-size: 27px;
+}
+
+/* ---------- フォーム ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.fieldLabel {
+  color: #91c8ed;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 2px solid var(--navy-950);
+  border-radius: 0;
+  color: #eaf6ff;
+  background: #04142d;
+  box-shadow: inset 2px 2px 0 rgba(43, 101, 152, 0.55);
+  font-family: inherit;
+  font-size: 19px;
+}
+
+.input:focus {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---------- タブ ---------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 4px;
+  border: 2px solid var(--navy-950);
+  border-radius: 0;
+  color: #9fc9e8;
+  background: #0d3160;
+  box-shadow: inset 0 0 0 1px var(--navy-700);
+  font-family: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.tabOn {
+  color: #fff;
+  background: var(--navy-700);
+  box-shadow: inset 0 -3px 0 var(--amber);
+}
+
+/* ---------- テーブル ---------- */
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 18px;
+}
+
+.table th {
+  padding: 4px 7px;
+  border-bottom: 2px solid var(--navy-700);
+  color: #91c8ed;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.09em;
+  text-align: left;
+}
+
+.table td {
+  padding: 5px 7px;
+  border-bottom: 1px solid rgba(43, 101, 152, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.num {
+  text-align: right;
+}
+
+.medal {
+  color: var(--amber);
+}
+
+/* ---------- フッター ---------- */
+
+.footRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.back,
+.lang {
+  padding: 6px 13px;
+  border: 2px solid var(--navy-900);
+  border-radius: 0;
+  color: var(--navy-900);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(10, 40, 81, 0.2);
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.back:hover,
+.lang:hover {
+  border-color: #a8722a;
+  color: #6b3f06;
+}

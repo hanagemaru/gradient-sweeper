@@ -1,0 +1,589 @@
+@font-face {
+  font-family: "MaruMonica";
+  src: url("/fonts/marumonica.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+/*
+ * 固定キャンバス＋レターボックス方式。
+ *
+ * 画面サイズに追従させるのをやめ、390x844（対象スマホ5機種
+ * 360/375/390/414/430 の中央値）を1枚だけ描いて、それを画面に収まるだけ
+ * 拡大縮小する。あまった余白は黒で塗る。
+ *
+ * 利点は背景の設計が1通りで済むこと。旧方式は「大きなワールドを画面で覗く
+ * カメラ」だったので、機種ごとに何が見えるかが変わり、クリスタルの配置枠も
+ * 機種別に3帯へ割る必要があった。固定キャンバスならキープアウトは実測1つで足りる。
+ *
+ * .stage が黒い額、.scene が 390x844 のキャンバス本体。
+ */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.scene {
+  --block-font: "VT323", ui-monospace, monospace;
+  --jp-font: "MaruMonica", sans-serif;
+  --navy-950: #063669;
+  --navy-900: #075b9f;
+  --navy-800: #0a4f91;
+  --navy-700: #2a7fba;
+  --cyan: #8fe0f2;
+  --cyan-dim: #62b6d3;
+  --amber: #f0a94a;
+  --asset-shadow: 4px 5px 0 rgba(30, 55, 105, 0.28);
+
+  position: relative;
+  z-index: 1;
+  /*
+   * .stage は flex コンテナなので、これが無いと 390px より狭い画面で
+   * flex-shrink が効いてレイアウト幅そのものが縮み、下の transform と
+   * 二重に縮小されてしまう（実測: 360x800 で倍率 0.923 のはずが 0.851）。
+   */
+  flex: 0 0 auto;
+  overflow: hidden;
+  width: 390px;
+  height: 844px;
+  /* グラデーション本体は .backdrop 側。ここは継ぎ目防止の単色フォールバック。 */
+  background: #c3d4f7;
+  font-family: var(--jp-font);
+  /*
+   * 長さ同士の割り算にすることで、JSを使わずCSSだけで contain 相当
+   * （縦横のうち小さい方に合わせる）になる。
+   * 2.2 は上限。デスクトップの大画面でドット絵が過度に拡大されるのを防ぐ。
+   *
+   * この transform には副作用があり、それが方式の要になっている:
+   * transform が掛かった要素は position:fixed な子孫の containing block に
+   * なる（CSS仕様）。おかげで下の .backdrop の inset:0 が実ビューポートでは
+   * なく、この 390x844 の矩形を基準にしてくれる。
+   */
+  transform: scale(min(calc(100vw / 390px), calc(100dvh / 844px), 2.2));
+}
+
+.sceneEnglish {
+  --jp-font: var(--block-font);
+}
+
+/*
+ * 背景のカメラ。inset:0 は .scene の transform によってキャンバス基準に
+ * すり替わっているので、実質「キャンバス全面」を意味する。
+ * fixed のままにしてあるのは、中身が縦に伸びても背景がスクロールしないため。
+ */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, #d3e2fb 0%, #b9cdf6 55%, #cfe0fb 100%);
+}
+
+.decorativeImage {
+  display: block;
+  max-width: none;
+  image-rendering: pixelated;
+  filter: drop-shadow(var(--asset-shadow));
+}
+
+/*
+ * 背景ワールド: キャンバスと同じ 390x844 の1枚絵。
+ * 旧方式と違い画面より大きくないので、切り取られる部分は無い。
+ * 各素材は等倍のまま（拡大縮小はキャンバスごと .scene の transform が行う）。
+ */
+.world {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.worldImage {
+  position: absolute;
+}
+
+/*
+ * キャンバス内のスクロール領域。
+ * 中身が 844px を超えるページ（ランキング・リザルト）はここが縦スクロールする。
+ * .scene 自体の寸法は動かさないので、背景とレターボックスは固定されたままになる。
+ */
+.scroll {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.content {
+  position: relative;
+  display: flex;
+  min-height: 844px;
+  align-items: flex-start;
+  justify-content: center;
+  /*
+   * 上端からパネルまでのすきま。
+   * この帯は「一番小さいクリスタルをパネルの上に置く」場所も兼ねている。
+   * scripts/generate-background-world.mjs の CANVAS_UI_KEEPOUT と
+   * CANVAS_CRYSTAL_SLOTS がこの値を前提に組まれているので、
+   * ここを変えたら向こうの実測値も取り直して背景を再生成すること。
+   */
+  padding: 120px 16px 42px;
+}
+
+.stack {
+  display: flex;
+  width: 100%;
+  max-width: 350px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.stackMenu {
+  max-width: 320px;
+}
+
+.stackWide {
+  max-width: 440px;
+}
+
+.panel {
+  position: relative;
+  width: 100%;
+  padding: 22px 18px 20px;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid var(--cyan);
+  outline-offset: -7px;
+  background: var(--navy-900);
+  box-shadow:
+    inset 0 0 0 1px var(--navy-700),
+    inset 0 -6px 0 rgba(4, 15, 32, 0.35),
+    0 6px 0 rgba(15, 35, 70, 0.35),
+    6px 12px 0 rgba(20, 45, 90, 0.18);
+  color: #fff;
+}
+
+.panelCompact {
+  padding-top: 18px;
+}
+
+.panel::before,
+.panel::after {
+  position: absolute;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  background: var(--navy-950);
+  content: "";
+}
+
+.panel::before {
+  top: -3px;
+  left: -3px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.panel::after {
+  right: -3px;
+  bottom: -3px;
+  clip-path: polygon(100% 100%, 100% 0, 0 100%);
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 17px;
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  color: #fff;
+  font-family: var(--block-font);
+  /*
+   * 旧: clamp(31px, 9vw, 40px)。vw は実ビューポート基準なので、キャンバスを
+   * 拡大縮小してもタイトルだけ別の倍率で動いてしまい、機種ごとに絵が変わる。
+   * キャンバス幅 390px のときの 9vw = 35.1px を固定値にする。
+   */
+  font-size: 35px;
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: 0.03em;
+  text-shadow: 2px 2px 0 rgba(4, 15, 32, 0.6);
+  text-wrap: balance;
+}
+
+.divider {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  margin-top: 13px;
+}
+
+.divider span {
+  flex: 1;
+  border-top: 2px dashed var(--cyan-dim);
+}
+
+.divider i {
+  width: 5px;
+  height: 5px;
+  background: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(143, 224, 242, 0.18);
+}
+
+.subtitle {
+  margin: 9px 0 0;
+  color: #a9c8e8;
+  font-family: var(--jp-font);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.buttonGroup {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.button {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 2px solid var(--navy-950);
+  outline: 1px solid var(--cyan-dim);
+  outline-offset: -4px;
+  color: #fff;
+  font-family: var(--jp-font);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 80ms ease, filter 80ms ease;
+}
+
+.button:hover {
+  outline-color: var(--cyan);
+  filter: brightness(1.08);
+}
+
+.button:active {
+  transform: translate(1px, 2px);
+}
+
+.button:focus-visible,
+.languageOption:focus-visible,
+.input:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  opacity: 0.55;
+}
+
+.button_primary {
+  background:
+    repeating-linear-gradient(0deg, rgba(143, 224, 242, 0.04) 0 1px, transparent 1px 6px),
+    var(--navy-800);
+  box-shadow: inset 0 -4px 0 rgba(4, 15, 32, 0.28);
+}
+
+.button_secondary {
+  border-color: var(--navy-800);
+  background: var(--navy-700);
+}
+
+.button_ghost {
+  border-color: var(--navy-700);
+  outline: none;
+  background: rgba(6, 26, 55, 0.7);
+  color: #cfe4f7;
+}
+
+.button_tab {
+  flex: 1;
+  border-width: 0 1px 0 0;
+  outline: none;
+  background: var(--navy-950);
+  color: #8fb6dc;
+}
+
+.button_tab:last-child {
+  border-right: 0;
+}
+
+.button_sm {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.button_md {
+  padding: 11px 13px;
+  font-size: 16px;
+}
+
+.button_lg {
+  padding: 14px 15px;
+  font-size: 20px;
+}
+
+.buttonBlock {
+  width: 100%;
+}
+
+.buttonLeading {
+  flex: none;
+  color: var(--amber);
+  font-family: var(--block-font);
+  font-size: 16px;
+}
+
+.buttonLabel {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.buttonTrailing {
+  flex: none;
+  color: #9bc2e4;
+  font-family: var(--block-font);
+  font-size: 16px;
+}
+
+.languageToggle {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 2px solid var(--navy-950);
+  outline: 1px solid var(--cyan-dim);
+  outline-offset: -3px;
+  background: var(--navy-900);
+  box-shadow: 3px 5px 0 rgba(20, 45, 90, 0.18);
+}
+
+.languageOption {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: #7ea3c8;
+  font-family: var(--block-font);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.languageOptionOn {
+  color: #fff;
+}
+
+.languageArrow {
+  width: 10px;
+  color: var(--amber);
+  font-size: 12px;
+  text-align: center;
+}
+
+.languageDivider {
+  margin: 0 3px;
+  color: var(--navy-700);
+  font-family: var(--block-font);
+  font-size: 18px;
+}
+
+.tabs {
+  display: flex;
+  width: 100%;
+  margin-bottom: 12px;
+  border: 1px solid var(--navy-700);
+}
+
+.tabs .button {
+  flex: 1;
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 1px solid var(--navy-700);
+  list-style: none;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--navy-700);
+  color: #dbeaf9;
+  font-size: 15px;
+}
+
+.stat:last-child {
+  border-bottom: 0;
+}
+
+.stat strong {
+  color: #fff;
+  font-family: var(--block-font);
+  font-size: 21px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.statEmphasis {
+  background: rgba(143, 224, 242, 0.08);
+}
+
+.stat strong.danger {
+  color: #ff9aaa;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+  color: #a9c8e8;
+  font-size: 14px;
+}
+
+.field small {
+  font-size: inherit;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 11px;
+  border: 2px solid var(--navy-700);
+  border-radius: 0;
+  background: var(--navy-950);
+  color: #fff;
+  font-family: var(--jp-font);
+  font-size: 17px;
+}
+
+.input::placeholder {
+  color: #6f96bd;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 14px;
+  border: 1px solid var(--navy-700);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--navy-700);
+  background: rgba(6, 26, 55, 0.72);
+  color: #a9c8e8;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  max-width: 132px;
+  overflow: hidden;
+  padding: 8px;
+  border-bottom: 1px solid rgba(44, 96, 152, 0.45);
+  color: #fff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table [data-numeric="true"] {
+  font-family: var(--block-font);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.table td:first-child {
+  color: #dbeaf9;
+  font-family: var(--block-font);
+  font-size: 16px;
+}
+
+.table td[data-medal="true"] {
+  color: var(--amber);
+}
+
+.message {
+  padding: 24px 14px;
+  color: #a9c8e8;
+  text-align: center;
+}
+
+.messageError {
+  color: #ff9aaa;
+}
+
+.modalRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modalBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(6, 26, 55, 0.82);
+}
+
+.modalPanel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 390px);
+}
+
+/*
+ * 旧 `@media (max-width: 359px)` の詰めルールは削除した。
+ * キャンバス内の幅は常に 390px で、狭い機種では画面ごと縮小されるだけなので、
+ * 実ビューポート幅で中身のパディングを変えると、その機種だけ別の絵になってしまう。
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}
