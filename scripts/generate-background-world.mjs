@@ -406,6 +406,45 @@ function clearOfUiPanel(rect) {
 }
 
 /**
+ * 画面にほんの少しだけ入っているセルはノイズに見える、という指摘への対応。
+ *
+ * 「モチーフとして読める最小の大きさ」をゲームの1セル分（36px）とする。
+ * 実測（前回の3シード）では、意味のあるモチーフの可視幅・可視高さは 53px 以上、
+ * ノイズに見えたものは 28px 以下と、この境界できれいに分かれていた。
+ *
+ * 端で切れていないものは、小さくてもノイズではないので対象外
+ * （クリスタルの accent-small は不透明部分が 34x33 しかない）。
+ */
+const MIN_ONSCREEN = 36;
+
+/** 画面に写る不透明部分の幅と高さ。x はトーラスなので複製位置ごとに測る。 */
+function onScreenExtent(rect, shift) {
+  const x0 = rect.x + rect.ox + shift;
+  const y0 = rect.y + rect.oy;
+  return {
+    vw: Math.max(0, Math.min(x0 + rect.ow, WORLD_WIDTH) - Math.max(x0, 0)),
+    vh: Math.max(0, Math.min(y0 + rect.oh, WORLD_HEIGHT) - Math.max(y0, 0)),
+  };
+}
+
+/** その複製が「読める」か。端で切れていない、または切れても36px以上残っている。 */
+function isReadableCopy(rect, shift) {
+  const { vw, vh } = onScreenExtent(rect, shift);
+  if (vw === rect.ow && vh === rect.oh) return true;
+  return vw >= MIN_ONSCREEN && vh >= MIN_ONSCREEN;
+}
+
+/** 複製のうち1枚でも読める大きさで画面に入っているか（配置を採用してよいか）。 */
+function hasReadableCopy(rect) {
+  for (let k = -2; k <= 2; k += 1) {
+    if (onScreenExtent(rect, k * TILE_WIDTH).vw > 0 && isReadableCopy(rect, k * TILE_WIDTH)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * maxReach（島の種からどれだけ離れた位置まで探すか）は、もとの1440px幅タイル
  * を基準に決めた値。CANVAS_MODE のタイル幅は390pxしかない。
  *
@@ -455,6 +494,9 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
       // 内側にもっと良い位置があるかもしれないので、探索は続ける。
       if (!farFromSameAsset(rect)) continue;
       if (isCrystal && !clearOfUiPanel(rect)) continue;
+      // 画面に破片しか映らない位置は最初から採らない。ここで弾いておけば
+      // fillGaps が代わりの位置を探すので、密度を落とさずにノイズだけ減る。
+      if (CANVAS_MODE && !hasReadableCopy(rect)) continue;
       settled = rect;
     }
 
@@ -741,6 +783,22 @@ function expandTiles(tileItems) {
   return out;
 }
 
+/**
+ * 画面に破片しか映らない複製を落とす（CANVAS_MODE 専用）。
+ *
+ * 配置はトーラスなので、右端をまたぐモチーフは左端にも出る。片方が実体で
+ * もう片方が数pxの破片、ということが起きる。破片の側だけ落とせば実体は
+ * 残るので、密度を落とさずにノイズだけ消える。
+ * `hasReadableCopy` は「1枚でも読めれば配置を採用する」判定なので、
+ * 残った破片はここで初めて取り除かれる。
+ */
+function dropSliverCopies(items) {
+  const kept = items.filter((p) => isReadableCopy(p, 0));
+  const dropped = items.length - kept.length;
+  if (dropped > 0) console.log(`dropped slivers: ${dropped} (< ${MIN_ONSCREEN}px on screen)`);
+  return kept;
+}
+
 function serialise(items) {
   const lines = items
     .map((p) => {
@@ -920,7 +978,8 @@ async function renderReview(items) {
 }
 
 const tileItems = await build();
-const items = expandTiles(tileItems);
+const expanded = expandTiles(tileItems);
+const items = CANVAS_MODE ? dropSliverCopies(expanded) : expanded;
 
 // WRITE_WORLD=0 のときは確認画像だけ作り、本番の配置は差し替えない（試作用）
 // OUT_FILE で出力先を変えられる（CANVAS_MODE の複数シード比較で使う）。
