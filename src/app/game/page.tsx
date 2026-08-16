@@ -15,6 +15,7 @@ import { ClearedModal } from "@/components/game/ClearedModal";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/Icon";
 import { MilestoneEffect } from "@/components/game/MilestoneEffect";
+import { GameResultOverlay } from "@/app/result/GameResultOverlay";
 import { GameMode, Difficulty, MAX_REVIVES_TA, GRID_SIZE, LEVEL_CLEAR_BONUS, PERFECT_BONUS_MULTIPLIER } from "@/types/game";
 import { showRewardedAd } from "@/lib/rewarded-provider";
 import { countFlags } from "@/lib/game-logic";
@@ -63,6 +64,19 @@ function GameContent() {
 
   // ゲームオーバーモーダル表示遅延（爆発エフェクト完了後に表示）
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+
+  // 結果画面（旧: /result への遷移）を盤面の上にオーバーレイ表示するための
+  // スナップショット。null のときは非表示。elapsedRef は ref のため、
+  // Give Up / Finish が呼ばれた瞬間の値をここへ固定コピーする。
+  const [resultSnapshot, setResultSnapshot] = useState<{
+    cleared: boolean;
+    level: number;
+    misses: number;
+    revives: number;
+    score: number;
+    timeMs: number;
+    penaltyMs: number;
+  } | null>(null);
 
   // TAモード復活時のペナルティポップアップ表示
   const [showPenaltyPopup, setShowPenaltyPopup] = useState(false);
@@ -146,26 +160,17 @@ function GameContent() {
   }, [revive, mode]);
 
   const handleGiveUp = useCallback(() => {
-    // ゲームオーバー時の Give Up → 結果画面へ遷移
-    const params = new URLSearchParams({
-      mode,
-      level: state.level.toString(),
-      misses: state.missCount.toString(),
-      revives: state.reviveCount.toString(),
-      cleared: "false",
+    // ゲームオーバー時の Give Up → 結果画面を盤面の上にオーバーレイ表示
+    setResultSnapshot({
+      cleared: false,
+      level: state.level,
+      misses: state.missCount,
+      revives: state.reviveCount,
+      score: state.score,
+      timeMs: elapsedRef.current,
+      penaltyMs: state.penaltyMs,
     });
-    if (mode === "endless") {
-      params.set("score", state.score.toString());
-    }
-    if (mode === "ta") {
-      params.set("time", elapsedRef.current.toString());
-      params.set("penaltyMs", state.penaltyMs.toString());
-    }
-    if (difficulty) {
-      params.set("difficulty", difficulty);
-    }
-    router.push(`/result?${params.toString()}`);
-  }, [mode, difficulty, state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs, router]);
+  }, [state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs]);
 
   const handleQuitFromPause = useCallback(() => {
     // ポーズからの Quit → 直接ホームへ（スコア登録なし）
@@ -182,26 +187,17 @@ function GameContent() {
   }, [nextLevel]);
 
   const handleFinish = useCallback(() => {
-    // 結果画面へ遷移
-    const params = new URLSearchParams({
-      mode,
-      level: state.level.toString(),
-      misses: state.missCount.toString(),
-      revives: state.reviveCount.toString(),
-      cleared: "true",
+    // 結果画面を盤面の上にオーバーレイ表示
+    setResultSnapshot({
+      cleared: true,
+      level: state.level,
+      misses: state.missCount,
+      revives: state.reviveCount,
+      score: state.score,
+      timeMs: elapsedRef.current,
+      penaltyMs: state.penaltyMs,
     });
-    if (mode === "endless") {
-      params.set("score", state.score.toString());
-    }
-    if (mode === "ta") {
-      params.set("time", elapsedRef.current.toString());
-      params.set("penaltyMs", state.penaltyMs.toString());
-    }
-    if (difficulty) {
-      params.set("difficulty", difficulty);
-    }
-    router.push(`/result?${params.toString()}`);
-  }, [mode, difficulty, state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs, router]);
+  }, [state.level, state.missCount, state.reviveCount, state.score, state.penaltyMs]);
 
   // TAモード: クリア後の答え合わせ完了で自動的に結果画面へ遷移
   useEffect(() => {
@@ -304,7 +300,7 @@ function GameContent() {
         </div>
 
         <GameOverModal
-          isOpen={showGameOverModal}
+          isOpen={showGameOverModal && !resultSnapshot}
           mode={mode}
           reviveCount={state.reviveCount}
           onRevive={handleRevive}
@@ -321,6 +317,19 @@ function GameContent() {
         />
 
         {mode === "endless" && <MilestoneEffect score={state.score} />}
+
+        <GameResultOverlay
+          isOpen={resultSnapshot !== null}
+          mode={mode}
+          difficulty={difficulty ?? null}
+          level={resultSnapshot?.level ?? 0}
+          misses={resultSnapshot?.misses ?? 0}
+          revives={resultSnapshot?.revives ?? 0}
+          cleared={resultSnapshot?.cleared ?? false}
+          score={resultSnapshot?.score ?? 0}
+          timeMs={resultSnapshot?.timeMs ?? 0}
+          penaltyMs={resultSnapshot?.penaltyMs ?? 0}
+        />
       </section>
     </main>
   );
