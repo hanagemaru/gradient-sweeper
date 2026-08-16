@@ -88,12 +88,12 @@ const MIN_GAP = 15;
  *
  * 固定キャンバス(390x844)では画面サイズが1つしかないので、実測も1回で済む。
  * 390x844(スケール1)で実測した `.stack`（パネル＋言語トグル）は
- * x[35,355] y[324,692]。パネルの落ち影と余裕を足して10pxずつ広げる。
+ * x[35,355] y[120,488]。パネルの落ち影と余裕を足して10pxずつ広げる。
  *
- * y0=324 は `canvas.module.css` の `.content { padding-top: 324px }` と直結。
+ * y0=120 は `canvas.module.css` の `.content { padding-top: 120px }` と直結。
  * レイアウトを変えたらここも取り直すこと。
  */
-const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 314, y1: 702 };
+const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 110, y1: 498 };
 
 const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
@@ -137,11 +137,11 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  * `CANVAS_MODE` の分岐）ので、画面に映るクリスタルはここの4つだけになる。
  *
  * 帯は2つ:
- *   上 y[8,306]   … キープアウト上端 314 の上。298px あるので大きめも入る。
- *   下 y[702,844] … キープアウト下端 702 の下。142px。
+ *   上 y[4,102]   … キープアウト上端 110 の上。98px しかないので小型のみ。
+ *   下 y[504,840] … キープアウト下端 498 の下。336px あり、残り3つが余裕で入る。
  *
- * 一番小さい accent-small は上の帯に置く（指定）。上の帯は高さに余裕が
- * あるので cluster-large も同居させ、残り2つを下の帯へ回して上下のバランスを取る。
+ * パネルの上に置くのは一番小さい accent-small だけ（指定）。
+ * 残り3つは下の帯へ回す。
  *
  * y は PNG の矩形ではなく不透明部分（oy/oh）が帯に収まるように決めてある。
  *   accent-small   40x40  不透明 (3,7)  34x33 → 不透明 y = Y+7 .. Y+40
@@ -150,14 +150,14 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  *   cluster-wide  120x80  不透明 (3,35) 114x45 → 不透明 y = Y+35 .. Y+80
  */
 const CANVAS_CRYSTAL_SLOTS = [
-  // 上の帯。一番小さいものをパネルの上に見せる（指定）。
-  { key: "above-small", name: "accent-small", x0: 10, x1: 380, y0: 120, y1: 240, behindPanel: false },
-  // 上の帯。不透明下端 Y+110 <= 306 → Y <= 196。
-  { key: "above-large", name: "cluster-large", x0: 10, x1: 380, y0: 20, y1: 180, behindPanel: false },
-  // 下の帯。不透明 y = Y+6..Y+90 を [702,844] に収める → Y in [696,754]。
-  { key: "below-medium", name: "cluster-medium", x0: 10, x1: 380, y0: 700, y1: 750, behindPanel: false },
-  // 下の帯。不透明 y = Y+35..Y+80 を [702,844] に収める → Y in [667,764]。
-  { key: "below-wide", name: "cluster-wide", x0: 10, x1: 380, y0: 672, y1: 758, behindPanel: false },
+  // 上の帯。不透明 y = Y+7..Y+40 を [4,102] に収める → Y in [-3,62]。
+  { key: "above-small", name: "accent-small", x0: 10, x1: 380, y0: 8, y1: 60, behindPanel: false },
+  // 下の帯。不透明 y = Y+6..Y+110 を [504,840] に収める → Y in [498,730]。
+  { key: "below-large", name: "cluster-large", x0: 10, x1: 380, y0: 500, y1: 728, behindPanel: false },
+  // 下の帯。不透明 y = Y+6..Y+90 を [504,840] に収める → Y in [498,750]。
+  { key: "below-medium", name: "cluster-medium", x0: 10, x1: 380, y0: 500, y1: 748, behindPanel: false },
+  // 下の帯。不透明 y = Y+35..Y+80 を [504,840] に収める → Y in [469,760]。
+  { key: "below-wide", name: "cluster-wide", x0: 10, x1: 380, y0: 500, y1: 755, behindPanel: false },
 ];
 
 const CRYSTAL_SLOTS = CANVAS_MODE

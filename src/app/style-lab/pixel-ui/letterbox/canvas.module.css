@@ -159,13 +159,13 @@
   align-items: flex-start;
   justify-content: center;
   /*
-   * 上端からパネルまでのすきま。もとは 108px だったが、上に寄りすぎという
-   * 判断で3倍の 324px にした。この帯は「一番小さいクリスタルをパネルの上に
-   * 置く」ための場所も兼ねている（generate-background-world.mjs の
-   * CANVAS_CRYSTAL_SLOTS が同じ 324 を前提に組まれているので、
-   * ここを変えたら向こうの実測値も取り直すこと）。
+   * 上端からパネルまでのすきま。108px だと上に寄りすぎるという判断で 120px。
+   * この帯は「一番小さいクリスタル（accent-small）をパネルの上に置く」ための
+   * 場所も兼ねている。generate-background-world.mjs の CANVAS_UI_KEEPOUT と
+   * CANVAS_CRYSTAL_SLOTS がこの値を前提に組まれているので、
+   * ここを変えたら向こうの実測値も取り直すこと。
    */
-  padding: 324px 16px 42px;
+  padding: 120px 16px 42px;
   font-family: "MaruMonica", sans-serif;
 }
 
