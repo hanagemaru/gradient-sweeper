@@ -56,6 +56,31 @@
 }
 
 .canvas {
+  /*
+   * PixelPanel / PixelButton は色もフォントも var(--navy-900) のような
+   * カスタムプロパティで書かれていて、その定義は pixel-ui.module.css の
+   * `.scene` にしか無い。このページは `.scene` を使わないので、そのままだと
+   * 全部が未定義になり、background が transparent、border/outline が
+   * 初期値の白に落ちる（＝パネルが透明に見える）。
+   *
+   * `.scene` を併用しない理由は min-height:100dvh を持っているため。
+   * 固定 844px のキャンバスに掛けると高さが実ビューポート追従に戻ってしまい、
+   * この方式の前提そのものが壊れる。
+   *
+   * よってトークンだけをここへ写している（値は pixel-ui.module.css と同じ）。
+   * 本実装では `.scene` 自体がキャンバスになるので、この重複は無くなる。
+   */
+  --block-font: "VT323", ui-monospace, monospace;
+  --jp-font: "MaruMonica", sans-serif;
+  --navy-950: #063669;
+  --navy-900: #075b9f;
+  --navy-800: #0a4f91;
+  --navy-700: #2a7fba;
+  --cyan: #8fe0f2;
+  --cyan-dim: #62b6d3;
+  --amber: #f0a94a;
+  --asset-shadow: 4px 5px 0 rgba(30, 55, 105, 0.28);
+
   position: relative;
   z-index: 1;
   overflow: hidden;
