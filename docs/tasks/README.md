@@ -28,6 +28,7 @@ docs/tasks/A-particles.md を読んで実装して
 | [E](./E-nextjs16.md) | Next.js 16 移行 | **単独で実施** |
 | [F](./F-first-click-safety.md) | 初手保証 | 可 |
 | [G](./G-fixed-canvas-letterbox.md) | 固定キャンバス＋レターボックス | **レーンB（PR #10）に取り込み済み** |
+| [H](./H-result-overlay.md) | リザルト画面をゲーム画面の上にオーバーレイ | **単独で実施**（`/game` と `/result` の両方に関わるため） |
 
 A・B・C・D・F は触るファイルが1つも重ならないので、同時に走らせてよい。
 
