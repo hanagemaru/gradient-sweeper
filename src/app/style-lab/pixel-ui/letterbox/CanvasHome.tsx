@@ -1,4 +1,9 @@
-import { PixelButton, PixelButtonGroup, PixelPanel } from "@/components/ui/PixelUI";
+import {
+  PixelButton,
+  PixelButtonGroup,
+  PixelLanguageToggle,
+  PixelPanel,
+} from "@/components/ui/PixelUI";
 import {
   BACKGROUND_WORLD,
   WORLD_HEIGHT,
@@ -88,6 +93,8 @@ export function CanvasHome({
                     ))}
                 </PixelButtonGroup>
               </PixelPanel>
+              {/* 本番の PixelScene と同じく .stack の末尾に置く */}
+              <PixelLanguageToggle />
             </div>
           </main>
         </div>

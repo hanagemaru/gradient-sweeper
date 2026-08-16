@@ -34,14 +34,23 @@ export async function generateMetadata({
 
 export default async function SeedPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ seed: string }>;
+  searchParams: Promise<{ bare?: string }>;
 }) {
   const { seed } = await params;
+  const { bare } = await searchParams;
   const found = SEEDS.find((s) => s.id === seed);
 
   if (!found) {
     notFound();
+  }
+
+  // 切り替えバーはキャンバス上端に重なり、パネル上のクリスタル帯を隠してしまう。
+  // ?bare=1 で外して素の状態を確認できるようにする（本番にこのバーは無い）。
+  if (bare) {
+    return <CanvasHome variant={BLACK_VARIANT} world={found.world} />;
   }
 
   return (
@@ -58,6 +67,12 @@ export default async function SeedPage({
           </Link>
         ))}
         <div className={styles.navSpacer} />
+        <Link
+          href={`/style-lab/pixel-ui/letterbox/seeds/${found.id}?bare=1`}
+          className={styles.navLink}
+        >
+          バー無しで見る
+        </Link>
         <Link href="/style-lab/pixel-ui/letterbox" className={styles.navLink}>
           余白比較へ
         </Link>

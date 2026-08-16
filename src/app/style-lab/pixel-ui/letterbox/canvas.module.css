@@ -158,7 +158,14 @@
   min-height: 844px;
   align-items: flex-start;
   justify-content: center;
-  padding: 108px 16px 42px;
+  /*
+   * 上端からパネルまでのすきま。もとは 108px だったが、上に寄りすぎという
+   * 判断で3倍の 324px にした。この帯は「一番小さいクリスタルをパネルの上に
+   * 置く」ための場所も兼ねている（generate-background-world.mjs の
+   * CANVAS_CRYSTAL_SLOTS が同じ 324 を前提に組まれているので、
+   * ここを変えたら向こうの実測値も取り直すこと）。
+   */
+  padding: 324px 16px 42px;
   font-family: "MaruMonica", sans-serif;
 }
 

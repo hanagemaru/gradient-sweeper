@@ -87,10 +87,13 @@ const MIN_GAP = 15;
  * CANVAS_MODE のキープアウト。
  *
  * 固定キャンバス(390x844)では画面サイズが1つしかないので、実測も1回で済む。
- * `/style-lab/pixel-ui/letterbox/black` を 390x844(スケール1、レターボックス無し)で
- * 実測した `.panel` の矩形は x[35,355] y[108,392.6]。左右10px・上下10pxの余裕を足す。
+ * 390x844(スケール1)で実測した `.stack`（パネル＋言語トグル）は
+ * x[35,355] y[324,692]。パネルの落ち影と余裕を足して10pxずつ広げる。
+ *
+ * y0=324 は `canvas.module.css` の `.content { padding-top: 324px }` と直結。
+ * レイアウトを変えたらここも取り直すこと。
  */
-const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 98, y1: 403 };
+const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 314, y1: 702 };
 
 const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
@@ -126,15 +129,35 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  * (above-far, below) のどちらかなので、これで1画面に同じクリスタルは並ばない。
  */
 /**
- * CANVAS_MODE の予約枠。画面サイズが1つしかないので、上下1枠ずつで足りる
- * （5サイズ分の帯を分ける必要がなくなった＝固定キャンバス化の狙いそのもの）。
- * 種類は重複させない。
+ * CANVAS_MODE の予約枠。
+ *
+ * 画面サイズが1つしかないので、機種ごとに帯を分ける必要がない
+ * （＝固定キャンバス化の狙いそのもの）。4種類のクリスタルを1つずつ、
+ * 全部この枠で確保する。島と fillGaps はクリスタルを置かない（下記
+ * `CANVAS_MODE` の分岐）ので、画面に映るクリスタルはここの4つだけになる。
+ *
+ * 帯は2つ:
+ *   上 y[8,306]   … キープアウト上端 314 の上。298px あるので大きめも入る。
+ *   下 y[702,844] … キープアウト下端 702 の下。142px。
+ *
+ * 一番小さい accent-small は上の帯に置く（指定）。上の帯は高さに余裕が
+ * あるので cluster-large も同居させ、残り2つを下の帯へ回して上下のバランスを取る。
+ *
+ * y は PNG の矩形ではなく不透明部分（oy/oh）が帯に収まるように決めてある。
+ *   accent-small   40x40  不透明 (3,7)  34x33 → 不透明 y = Y+7 .. Y+40
+ *   cluster-large 130x110 不透明 (17,6) 95x104 → 不透明 y = Y+6 .. Y+110
+ *   cluster-medium 110x90 不透明 (9,6)  92x84 → 不透明 y = Y+6 .. Y+90
+ *   cluster-wide  120x80  不透明 (3,35) 114x45 → 不透明 y = Y+35 .. Y+80
  */
 const CANVAS_CRYSTAL_SLOTS = [
-  // パネル上端98(キープアウト)の上、y[30,80]の帯。空きが75pxしかないので小型のみ。
-  { key: "above", name: "accent-small", x0: 40, x1: 350, y0: 30, y1: 80, behindPanel: false },
-  // パネル下端403(キープアウト)の下は広い（〜844）。大きめを1つ。
-  { key: "below", name: "cluster-medium", x0: 40, x1: 350, y0: 440, y1: 620, behindPanel: false },
+  // 上の帯。一番小さいものをパネルの上に見せる（指定）。
+  { key: "above-small", name: "accent-small", x0: 10, x1: 380, y0: 120, y1: 240, behindPanel: false },
+  // 上の帯。不透明下端 Y+110 <= 306 → Y <= 196。
+  { key: "above-large", name: "cluster-large", x0: 10, x1: 380, y0: 20, y1: 180, behindPanel: false },
+  // 下の帯。不透明 y = Y+6..Y+90 を [702,844] に収める → Y in [696,754]。
+  { key: "below-medium", name: "cluster-medium", x0: 10, x1: 380, y0: 700, y1: 750, behindPanel: false },
+  // 下の帯。不透明 y = Y+35..Y+80 を [702,844] に収める → Y in [667,764]。
+  { key: "below-wide", name: "cluster-wide", x0: 10, x1: 380, y0: 672, y1: 758, behindPanel: false },
 ];
 
 const CRYSTAL_SLOTS = CANVAS_MODE
@@ -471,8 +494,11 @@ async function fillGaps(targetCount) {
     const useCore = spotScore > 240 && rand() < 0.55;
     // クリスタルは単体で浮いていると不自然なので、セルのすぐ脇に寄せられる
     // ときだけ置く。数も全体の2割程度で打ち止めにする。
+    // CANVAS_MODE では「4種類を1つずつだけ」が要件なので、予約枠
+    // （CANVAS_CRYSTAL_SLOTS）で確保した4つ以外は一切置かない。
     const crystalCount = placed.filter((p) => p.base === CRYSTAL_BASE).length;
     const useCrystal =
+      !CANVAS_MODE &&
       !useCore &&
       spotScore < 90 &&
       crystalCount < targetCount * 0.2 &&
@@ -557,7 +583,8 @@ async function build() {
 
     // 3. クリスタル。セルの縁のくぼみに小さな隙間で挟み込む。
     //    同じ島に同じ種類を置かないことで、同じ絵が並ぶ人工的な列を防ぐ。
-    const crystalCount = Math.floor(between(0, 2.7));
+    //    CANVAS_MODE では予約枠で確保した4つ（全種類1つずつ）で打ち止めにする。
+    const crystalCount = CANVAS_MODE ? 0 : Math.floor(between(0, 2.7));
     const usedCrystals = new Set();
     for (let i = 0; i < crystalCount; i += 1) {
       const remaining = CRYSTAL_WEIGHTS.filter((c) => !usedCrystals.has(c.name));
