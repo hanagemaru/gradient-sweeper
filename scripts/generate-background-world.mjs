@@ -132,33 +132,60 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  * CANVAS_MODE の予約枠。
  *
  * 画面サイズが1つしかないので、機種ごとに帯を分ける必要がない
- * （＝固定キャンバス化の狙いそのもの）。4種類のクリスタルを1つずつ、
+ * （＝固定キャンバス化の狙いそのもの）。使うクリスタルを1つずつ、
  * 全部この枠で確保する。島と fillGaps はクリスタルを置かない（下記
- * `CANVAS_MODE` の分岐）ので、画面に映るクリスタルはここの4つだけになる。
+ * `CANVAS_MODE` の分岐）ので、画面に映るクリスタルはここの枠だけになる。
+ *
+ * cluster-large はデザイン判断で不採用。枠を持たない＝どこにも出てこない。
  *
  * 帯は2つ:
  *   上 y[4,102]   … キープアウト上端 110 の上。98px しかないので小型のみ。
- *   下 y[504,840] … キープアウト下端 498 の下。336px あり、残り3つが余裕で入る。
+ *   下 y[504,840] … キープアウト下端 498 の下。336px。
  *
  * パネルの上に置くのは一番小さい accent-small だけ（指定）。
- * 残り3つは下の帯へ回す。
+ * 残り2つは下の帯へ回す。
  *
  * y は PNG の矩形ではなく不透明部分（oy/oh）が帯に収まるように決めてある。
  *   accent-small   40x40  不透明 (3,7)  34x33 → 不透明 y = Y+7 .. Y+40
- *   cluster-large 130x110 不透明 (17,6) 95x104 → 不透明 y = Y+6 .. Y+110
  *   cluster-medium 110x90 不透明 (9,6)  92x84 → 不透明 y = Y+6 .. Y+90
  *   cluster-wide  120x80  不透明 (3,35) 114x45 → 不透明 y = Y+35 .. Y+80
  */
 const CANVAS_CRYSTAL_SLOTS = [
   // 上の帯。不透明 y = Y+7..Y+40 を [4,102] に収める → Y in [-3,62]。
   { key: "above-small", name: "accent-small", x0: 10, x1: 380, y0: 8, y1: 60, behindPanel: false },
-  // 下の帯。不透明 y = Y+6..Y+110 を [504,840] に収める → Y in [498,730]。
-  { key: "below-large", name: "cluster-large", x0: 10, x1: 380, y0: 500, y1: 728, behindPanel: false },
-  // 下の帯。不透明 y = Y+6..Y+90 を [504,840] に収める → Y in [498,750]。
-  { key: "below-medium", name: "cluster-medium", x0: 10, x1: 380, y0: 500, y1: 748, behindPanel: false },
-  // 下の帯。不透明 y = Y+35..Y+80 を [504,840] に収める → Y in [469,760]。
-  { key: "below-wide", name: "cluster-wide", x0: 10, x1: 380, y0: 500, y1: 755, behindPanel: false },
+  // 下の帯。y0/y1 は resolveCanvasBottomBands が段ごとに埋める。
+  { key: "bottom-medium", name: "cluster-medium", x0: 10, x1: 380, behindPanel: false },
+  { key: "bottom-wide", name: "cluster-wide", x0: 10, x1: 380, behindPanel: false },
 ];
+
+/**
+ * 下の帯に入る2つの段。
+ *
+ * 2つを同じ高さに置くと横一列に並んで見えて不自然、という指摘への対応。
+ * 下の帯（不透明 y[504,840]）を
+ *   上段 y[504,652] / 下段 y[696,840]
+ * に割り、間に 44px の空白を強制する。これで両者の高さは必ずずれる。
+ *
+ * 値は矩形の Y。不透明部分が段に収まるよう oy を引いてある。
+ *   cluster-medium 不透明 y = Y+6 .. Y+90  → 上段 Y in [498,562] / 下段 Y in [690,750]
+ *   cluster-wide   不透明 y = Y+35 .. Y+80 → 上段 Y in [469,572] / 下段 Y in [661,760]
+ */
+const CANVAS_BOTTOM_BANDS = {
+  "cluster-medium": { upper: [498, 562], lower: [690, 750] },
+  "cluster-wide": { upper: [469, 572], lower: [661, 760] },
+};
+
+/** どちらが上段に入るかはシードごとに入れ替える（2案で同じ絵にならないように）。 */
+function resolveCanvasBottomBands(slots) {
+  const mediumOnTop = rand() < 0.5;
+  return slots.map((slot) => {
+    const bands = CANVAS_BOTTOM_BANDS[slot.name];
+    if (!bands) return slot;
+    const onTop = slot.name === "cluster-medium" ? mediumOnTop : !mediumOnTop;
+    const [y0, y1] = onTop ? bands.upper : bands.lower;
+    return { ...slot, y0, y1 };
+  });
+}
 
 const CRYSTAL_SLOTS = CANVAS_MODE
   ? CANVAS_CRYSTAL_SLOTS
@@ -494,8 +521,8 @@ async function fillGaps(targetCount) {
     const useCore = spotScore > 240 && rand() < 0.55;
     // クリスタルは単体で浮いていると不自然なので、セルのすぐ脇に寄せられる
     // ときだけ置く。数も全体の2割程度で打ち止めにする。
-    // CANVAS_MODE では「4種類を1つずつだけ」が要件なので、予約枠
-    // （CANVAS_CRYSTAL_SLOTS）で確保した4つ以外は一切置かない。
+    // CANVAS_MODE では「採用した種類を1つずつだけ」が要件なので、予約枠
+    // （CANVAS_CRYSTAL_SLOTS）で確保した3つ以外は一切置かない。
     const crystalCount = placed.filter((p) => p.base === CRYSTAL_BASE).length;
     const useCrystal =
       !CANVAS_MODE &&
@@ -525,7 +552,8 @@ async function fillGaps(targetCount) {
  */
 async function reserveCrystalSlots() {
   const reserved = [];
-  for (const slot of CRYSTAL_SLOTS) {
+  const slots = CANVAS_MODE ? resolveCanvasBottomBands(CRYSTAL_SLOTS) : CRYSTAL_SLOTS;
+  for (const slot of slots) {
     const size = await assetSize(CRYSTAL_BASE, slot.name);
     let done = null;
 
