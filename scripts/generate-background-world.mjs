@@ -240,12 +240,33 @@ const CRYSTAL_WEIGHTS = [
  * 素材の色。雪原が主役なので covered を厚くし、開封セルは差し色にとどめる。
  * 赤は「危険」の色なので最も希少にする。
  */
-const PALETTE_WEIGHTS = [
+const ALL_PALETTE_WEIGHTS = [
   { prefix: "covered", weight: 62 },
   { prefix: "open-blue", weight: 20 },
   { prefix: "open-purple", weight: 12 },
   { prefix: "open-red", weight: 6 },
 ];
+
+/**
+ * CANVAS_MODE の色の決め方。
+ *
+ * 要件は「赤ベースを1つ、青ベースを1つ以上、紫は使わない」。
+ * 重み付き抽選のままだと個数を保証できない（赤が0個や2個になる）ので、
+ *   1. 抽選では紫も赤も引かない（covered と open-blue だけ）
+ *   2. 生成し終わってから open-blue のうち1つだけを open-red に塗り替える
+ * という2段構えにして、個数を確定させる。
+ *
+ * 塗り替えが安全なのは、同じ形状なら open-blue と open-red の PNG 寸法が
+ * 完全に一致するため（14形状すべてで確認済み）。covered だけは 36x38 で
+ * 寸法が違うので、この塗り替えの対象にしない。
+ * 紫を抜いたぶんの重みは青に足す。
+ */
+const CANVAS_PALETTE_WEIGHTS = [
+  { prefix: "covered", weight: 62 },
+  { prefix: "open-blue", weight: 38 },
+];
+
+const PALETTE_WEIGHTS = CANVAS_MODE ? CANVAS_PALETTE_WEIGHTS : ALL_PALETTE_WEIGHTS;
 
 /** mulberry32: シード固定の疑似乱数 */
 function mulberry32(seed) {
@@ -583,6 +604,8 @@ async function reserveCrystalSlots() {
 
 async function build() {
   await reserveCrystalSlots();
+  // 赤セルもクリスタルと同じく先に押さえる（見える位置が構造的に少ないため）。
+  if (CANVAS_MODE) await reserveRedCell();
 
   // 区画はスマホのビューポート（〜390x844）より小さめに取り、
   // どの位置を切り取っても複数のモチーフが入るようにする。
@@ -631,7 +654,70 @@ async function build() {
   const density = CANVAS_MODE ? 3200 : 60000;
   await fillGaps(Math.round((TILE_WIDTH * WORLD_HEIGHT) / density));
 
+  if (CANVAS_MODE) {
+    const blues = placed.filter((p) => p.name.startsWith("open-blue-")).length;
+    if (blues < 1) console.log("WARNING: open-blue が1つも置かれなかった");
+  }
+
   return placed;
+}
+
+/**
+ * 赤セルを1つだけ、見える位置に先に確保する（CANVAS_MODE 専用）。
+ *
+ * 「赤ベースを1つ」という要件は個数だけでなく、差し色として見えていることまで
+ * 含む。ところがセルはパネルに重なってよい規則なので、普通に撒くと赤が
+ * パネルの裏や画面外にほぼ隠れてしまう（実測: 生成後に1つ塗り替える方式だと
+ * 3シードとも可視率 0〜26% だった）。空きが構造的に少ないのが原因なので、
+ * クリスタルと同じく島を撒く前に場所を押さえる。
+ *
+ * 押さえ方の条件:
+ *   - 端で回り込まないこと。配置はトーラスなので右端をまたぐセルは左端にも
+ *     出る。赤だと画面の左右に赤い破片が2つ見えて「赤は1つ」に反する。
+ *   - 可視面積が不透明部分の面積の VISIBLE_MIN_RATIO 以上あること。
+ *   - 形状は小〜中型に限る。赤は差し色なので、いちばん大きい塊が赤になると
+ *     画面の主役が入れ替わってしまう。
+ *
+ * 青は抽選（open-blue の重み38）に任せる。実測でどのシードも4〜5個出る。
+ */
+const VISIBLE_MIN_RATIO = 0.45;
+
+/** 画面内かつパネルの外にある不透明部分の面積。パネルは不透明なので裏は見えない扱い。 */
+function visibleArea(p) {
+  const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  const x0 = p.x + p.ox;
+  const y0 = p.y + p.oy;
+  const onScreen = overlap(x0, x0 + p.ow, 0, WORLD_WIDTH) * overlap(y0, y0 + p.oh, 0, WORLD_HEIGHT);
+  const behindPanel =
+    overlap(x0, x0 + p.ow, UI_KEEPOUT.x0, UI_KEEPOUT.x1) *
+    overlap(y0, y0 + p.oh, UI_KEEPOUT.y0, UI_KEEPOUT.y1);
+  return Math.max(0, onScreen - behindPanel);
+}
+
+const RED_CELL_SHAPES = ["square", "wide", "tall", "l", "l-rotated"];
+
+async function reserveRedCell() {
+  for (let attempt = 0; attempt < 600; attempt += 1) {
+    const name = `open-red-${pick(RED_CELL_SHAPES)}`;
+    const size = await assetSize(AUTOTILE_BASE, name);
+    if (size.w > WORLD_WIDTH) continue;
+
+    const rect = {
+      ...size,
+      base: AUTOTILE_BASE,
+      name,
+      x: Math.round(between(0, WORLD_WIDTH - size.w)),
+      y: Math.round(between(-size.h * 0.4, WORLD_HEIGHT - size.h * 0.6)),
+    };
+    if (visibleArea(rect) < size.ow * size.oh * VISIBLE_MIN_RATIO) continue;
+    if (!fits(rect, MIN_GAP)) continue;
+
+    placed.push(rect);
+    return rect;
+  }
+
+  console.log("WARNING: 赤セルを見える位置に確保できなかった");
+  return null;
 }
 
 /**
