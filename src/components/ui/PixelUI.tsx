@@ -47,20 +47,27 @@ export function PixelScene({
   const { language } = useI18n();
 
   return (
-    <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
-      <PixelBackdrop />
-      <main className={styles.content}>
-        <div
-          className={cx(
-            styles.stack,
-            width === "menu" && styles.stackMenu,
-            width === "wide" && styles.stackWide,
-          )}
-        >
-          {children}
-          {languageToggle && <PixelLanguageToggle />}
+    // .stage が黒いレターボックス、.scene が 390x844 の固定キャンバス。
+    // 中身が 844px を超えるページはキャンバス内の .scroll だけがスクロールし、
+    // 背景と黒帯は動かない。
+    <div className={styles.stage}>
+      <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
+        <PixelBackdrop />
+        <div className={styles.scroll}>
+          <main className={styles.content}>
+            <div
+              className={cx(
+                styles.stack,
+                width === "menu" && styles.stackMenu,
+                width === "wide" && styles.stackWide,
+              )}
+            >
+              {children}
+              {languageToggle && <PixelLanguageToggle />}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

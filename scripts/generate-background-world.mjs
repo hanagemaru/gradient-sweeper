@@ -24,14 +24,16 @@ const REVIEW_DIR =
   process.env.REVIEW_DIR ?? "/tmp/gradient-sweeper-background-review";
 
 /**
- * CANVAS_MODE=1: タスクG(固定キャンバス+レターボックス)の検討用モード。
+ * 固定キャンバス方式（390x844を1枚だけ描く）。これが現在の本番の方式。
  *
- * カメラ方式をやめて390x844の固定キャンバス1枚だけを描く前提に切り替える。
  * ワールド=キャンバスなのでタイリングも複数ビューポート対応も不要になり、
  * UI_KEEPOUT・CRYSTAL_SLOTS も単一の実測値だけで足りる。
- * 本番の background-world.ts は書き換えない（OUT_FILE で別ファイルへ逃がす）。
+ *
+ * `CANVAS_MODE=0` で旧方式（2880x1620 のワールドをビューポートで覗くカメラ）に
+ * 戻せる。既定を固定キャンバスにしてあるのは、素で再実行したときに本番の
+ * `src/lib/background-world.ts` が旧方式で上書きされるのを防ぐため。
  */
-const CANVAS_MODE = process.env.CANVAS_MODE === "1";
+const CANVAS_MODE = process.env.CANVAS_MODE !== "0";
 
 // デスクトップまでカメラで覆えるサイズ。1920x1080 / 2560x1440 いずれも内側に収まる。
 const WORLD_WIDTH = CANVAS_MODE ? 390 : 2880;
@@ -280,7 +282,12 @@ function mulberry32(seed) {
   };
 }
 
-const rand = mulberry32(Number(process.env.SEED ?? 20260815));
+/**
+ * 既定シードは、本番で採用した配置（比較5案のうちシード5）を再現する値。
+ * 素で再実行すればコミット済みの `src/lib/background-world.ts` と一致する。
+ */
+const DEFAULT_SEED = CANVAS_MODE ? 20265786 : 20260815;
+const rand = mulberry32(Number(process.env.SEED ?? DEFAULT_SEED));
 const between = (lo, hi) => lo + rand() * (hi - lo);
 const pick = (list) => list[Math.floor(rand() * list.length)];
 

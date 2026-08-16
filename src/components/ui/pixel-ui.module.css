@@ -6,6 +6,30 @@
   font-weight: 400;
 }
 
+/*
+ * 固定キャンバス＋レターボックス方式。
+ *
+ * 画面サイズに追従させるのをやめ、390x844（対象スマホ5機種
+ * 360/375/390/414/430 の中央値）を1枚だけ描いて、それを画面に収まるだけ
+ * 拡大縮小する。あまった余白は黒で塗る。
+ *
+ * 利点は背景の設計が1通りで済むこと。旧方式は「大きなワールドを画面で覗く
+ * カメラ」だったので、機種ごとに何が見えるかが変わり、クリスタルの配置枠も
+ * 機種別に3帯へ割る必要があった。固定キャンバスならキープアウトは実測1つで足りる。
+ *
+ * .stage が黒い額、.scene が 390x844 のキャンバス本体。
+ */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
 .scene {
   --block-font: "VT323", ui-monospace, monospace;
   --jp-font: "MaruMonica", sans-serif;
@@ -19,11 +43,30 @@
   --asset-shadow: 4px 5px 0 rgba(30, 55, 105, 0.28);
 
   position: relative;
-  min-height: 100dvh;
-  overflow-x: clip;
+  z-index: 1;
+  /*
+   * .stage は flex コンテナなので、これが無いと 390px より狭い画面で
+   * flex-shrink が効いてレイアウト幅そのものが縮み、下の transform と
+   * 二重に縮小されてしまう（実測: 360x800 で倍率 0.923 のはずが 0.851）。
+   */
+  flex: 0 0 auto;
+  overflow: hidden;
+  width: 390px;
+  height: 844px;
   /* グラデーション本体は .backdrop 側。ここは継ぎ目防止の単色フォールバック。 */
   background: #c3d4f7;
   font-family: var(--jp-font);
+  /*
+   * 長さ同士の割り算にすることで、JSを使わずCSSだけで contain 相当
+   * （縦横のうち小さい方に合わせる）になる。
+   * 2.2 は上限。デスクトップの大画面でドット絵が過度に拡大されるのを防ぐ。
+   *
+   * この transform には副作用があり、それが方式の要になっている:
+   * transform が掛かった要素は position:fixed な子孫の containing block に
+   * なる（CSS仕様）。おかげで下の .backdrop の inset:0 が実ビューポートでは
+   * なく、この 390x844 の矩形を基準にしてくれる。
+   */
+  transform: scale(min(calc(100vw / 390px), calc(100dvh / 844px), 2.2));
 }
 
 .sceneEnglish {
@@ -31,10 +74,9 @@
 }
 
 /*
- * ビューポート固定のカメラ。position:absolute だと高さが .scene に追従するため、
- * (1) body の min-h-screen(100vh) と .scene の 100dvh がずれる分だけ下端に
- *     body の白背景が露出し、(2) パネルの伸縮でワールドが再センタリングされてずれた。
- * fixed にすると常にビューポート全面を塗り、ワールドの原点も画面基準で固定される。
+ * 背景のカメラ。inset:0 は .scene の transform によってキャンバス基準に
+ * すり替わっているので、実質「キャンバス全面」を意味する。
+ * fixed のままにしてあるのは、中身が縦に伸びても背景がスクロールしないため。
  */
 .backdrop {
   position: fixed;
@@ -53,10 +95,9 @@
 }
 
 /*
- * 背景ワールド: 画面より大きい1枚の固定ピクセル配置レイヤー。
- * ビューポート固定の .backdrop がカメラのように可視範囲を切り取る。
- * 中央基準で配置するので、画面が大きいほど周囲がより多く見える。
- * background-size:cover 相当の拡大縮小はしない — 各素材は等倍のまま。
+ * 背景ワールド: キャンバスと同じ 390x844 の1枚絵。
+ * 旧方式と違い画面より大きくないので、切り取られる部分は無い。
+ * 各素材は等倍のまま（拡大縮小はキャンバスごと .scene の transform が行う）。
  */
 .world {
   position: absolute;
@@ -69,14 +110,34 @@
   position: absolute;
 }
 
-.content {
+/*
+ * キャンバス内のスクロール領域。
+ * 中身が 844px を超えるページ（ランキング・リザルト）はここが縦スクロールする。
+ * .scene 自体の寸法は動かさないので、背景とレターボックスは固定されたままになる。
+ */
+.scroll {
   position: relative;
   z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.content {
+  position: relative;
   display: flex;
-  min-height: 100dvh;
+  min-height: 844px;
   align-items: flex-start;
   justify-content: center;
-  padding: clamp(92px, 15vh, 132px) 16px 42px;
+  /*
+   * 上端からパネルまでのすきま。
+   * この帯は「一番小さいクリスタルをパネルの上に置く」場所も兼ねている。
+   * scripts/generate-background-world.mjs の CANVAS_UI_KEEPOUT と
+   * CANVAS_CRYSTAL_SLOTS がこの値を前提に組まれているので、
+   * ここを変えたら向こうの実測値も取り直して背景を再生成すること。
+   */
+  padding: 120px 16px 42px;
 }
 
 .stack {
@@ -150,7 +211,12 @@
   margin: 0;
   color: #fff;
   font-family: var(--block-font);
-  font-size: clamp(31px, 9vw, 40px);
+  /*
+   * 旧: clamp(31px, 9vw, 40px)。vw は実ビューポート基準なので、キャンバスを
+   * 拡大縮小してもタイトルだけ別の倍率で動いてしまい、機種ごとに絵が変わる。
+   * キャンバス幅 390px のときの 9vw = 35.1px を固定値にする。
+   */
+  font-size: 35px;
   font-weight: 400;
   line-height: 0.9;
   letter-spacing: 0.03em;
@@ -510,18 +576,11 @@
   width: min(100%, 390px);
 }
 
-@media (max-width: 359px) {
-  .content {
-    padding-right: 12px;
-    padding-left: 12px;
-  }
-
-  .panel {
-    padding-right: 14px;
-    padding-left: 14px;
-  }
-
-}
+/*
+ * 旧 `@media (max-width: 359px)` の詰めルールは削除した。
+ * キャンバス内の幅は常に 390px で、狭い機種では画面ごと縮小されるだけなので、
+ * 実ビューポート幅で中身のパディングを変えると、その機種だけ別の絵になってしまう。
+ */
 
 @media (prefers-reduced-motion: reduce) {
   .button {
