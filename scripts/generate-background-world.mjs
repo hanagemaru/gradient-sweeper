@@ -300,15 +300,11 @@ const ALL_PALETTE_WEIGHTS = [
 /**
  * CANVAS_MODE の色の決め方。
  *
- * 要件は「赤ベースを1つ、青ベースを1つ以上、紫は使わない」。
- * 重み付き抽選のままだと個数を保証できない（赤が0個や2個になる）ので、
- *   1. 抽選では紫も赤も引かない（covered と open-blue だけ）
- *   2. 生成し終わってから open-blue のうち1つだけを open-red に塗り替える
- * という2段構えにして、個数を確定させる。
- *
- * 塗り替えが安全なのは、同じ形状なら open-blue と open-red の PNG 寸法が
- * 完全に一致するため（14形状すべてで確認済み）。covered だけは 36x38 で
- * 寸法が違うので、この塗り替えの対象にしない。
+ * 要件は「未開封(covered)が主役、赤ベースが見える位置に1つ、青ベースが1つ以上、
+ * 紫は使わない」。重み付き抽選だけでは個数も可視性も保証できない
+ * （赤が0個や2個になる、covered がパネル裏に隠れて実質0個に見える、等）ので、
+ * 抽選では紫を引かず covered / open-blue だけにしたうえで、covered と赤は
+ * `reserveVisibleCell` で見える位置へ先に1個ずつ確保する（下記）。
  * 紫を抜いたぶんの重みは青に足す。
  */
 const CANVAS_PALETTE_WEIGHTS = [
@@ -701,8 +697,14 @@ async function reserveCrystalSlots() {
 
 async function build() {
   await reserveCrystalSlots();
-  // 赤セルもクリスタルと同じく先に押さえる（見える位置が構造的に少ないため）。
-  if (CANVAS_MODE) await reserveRedCell();
+  if (CANVAS_MODE) {
+    // 未開封セル（covered）と赤セルは、クリスタルと同じく見える位置を先に
+    // 押さえる（帯が狭く、あとから探しても取れないため）。青は可視性を
+    // 問わず存在だけ保証する（reserveBlueCell のコメント参照）。
+    await reserveRedCell();
+    await reserveVisibleCell("covered", COVERED_RESERVE_SHAPES);
+    await reserveBlueCell();
+  }
 
   // 区画はスマホのビューポート（〜390x844）より小さめに取り、
   // どの位置を切り取っても複数のモチーフが入るようにする。
@@ -760,20 +762,27 @@ async function build() {
 }
 
 /**
- * 赤セルを1つだけ、見える位置に先に確保する（CANVAS_MODE 専用）。
+ * 特定パレットのセルを1つだけ、見える位置に先に確保する（CANVAS_MODE 専用）。
  *
- * 「赤ベースを1つ」という要件は個数だけでなく、差し色として見えていることまで
- * 含む。ところがセルはパネルに重なってよい規則なので、普通に撒くと赤が
- * パネルの裏や画面外にほぼ隠れてしまう（実測: 生成後に1つ塗り替える方式だと
- * 3シードとも可視率 0〜26% だった）。空きが構造的に少ないのが原因なので、
- * クリスタルと同じく島を撒く前に場所を押さえる。
+ * 赤セルで最初に発見した問題: 個数だけ揃えても、セルはパネルに重なってよい
+ * 規則のせいで、普通に撒くとパネルの裏や画面外にほぼ隠れてしまう
+ * （実測: 生成後に1つ塗り替える方式だと3シードとも可視率 0〜26% だった）。
+ * 空きが構造的に少ないのが原因なので、クリスタルと同じく島を撒く前に
+ * 場所を押さえる。
+ *
+ * のちに covered（未開封セル）でも同じ問題を確認した。PALETTE_WEIGHTS の
+ * 重みは covered 62 / open-blue 38 で「雪原が主役」の意図だが、重みは
+ * 「置かれる個数」にしか効かず「見える位置に置かれるか」は別問題。実際、
+ * 既定シードでは covered が1個しか置かれず、しかもその1個がホーム画面の
+ * パネル裏にほぼ収まっていた＝ユーザーの目には未開封セルが一切見えない
+ * 状態になっていた。covered も赤と同じ理由でここに追加した。
  *
  * 押さえ方の条件:
  *   - 端で回り込まないこと。配置はトーラスなので右端をまたぐセルは左端にも
- *     出る。赤だと画面の左右に赤い破片が2つ見えて「赤は1つ」に反する。
+ *     出る。同じ色が画面の左右に2つ見えると「1つ」の想定に反する。
  *   - 可視面積が不透明部分の面積の VISIBLE_MIN_RATIO 以上あること。
- *   - 形状は小〜中型に限る。赤は差し色なので、いちばん大きい塊が赤になると
- *     画面の主役が入れ替わってしまう。
+ *   - 形状は小〜中型に限る。差し色（赤）はもちろん、主役の covered でも
+ *     いちばん大きい塊がこれ1個で占有すると他のモチーフの置き場が無くなる。
  *
  * 青は抽選（open-blue の重み38）に任せる。実測でどのシードも4〜5個出る。
  */
@@ -791,30 +800,74 @@ function visibleArea(p) {
   return Math.max(0, onScreen - behindPanel);
 }
 
-const RED_CELL_SHAPES = ["square", "wide", "tall", "l", "l-rotated"];
+const RESERVED_CELL_SHAPES = ["square", "wide", "tall", "l", "l-rotated"];
 
-async function reserveRedCell() {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
-    const name = `open-red-${pick(RED_CELL_SHAPES)}`;
-    const size = await assetSize(AUTOTILE_BASE, name);
-    if (size.w > WORLD_WIDTH) continue;
+/**
+ * covered 専用の縮小形状セット。
+ *
+ * 赤と covered を両方とも上下の帯（高さ102〜110px）に確保しようとすると、
+ * 既に確保済みのクリスタル3個と場所を取り合って失敗率が上がる。
+ * covered は l/l-rotated（192x192、キャンバス幅の半分）を候補から外す。
+ * 赤は元から動いていた組み合わせなので RESERVED_CELL_SHAPES のまま変えない。
+ */
+const COVERED_RESERVE_SHAPES = ["square", "wide", "tall"];
 
-    const rect = {
-      ...size,
-      base: AUTOTILE_BASE,
-      name,
-      x: Math.round(between(0, WORLD_WIDTH - size.w)),
-      y: Math.round(between(-size.h * 0.4, WORLD_HEIGHT - size.h * 0.6)),
-    };
-    if (visibleArea(rect) < size.ow * size.oh * VISIBLE_MIN_RATIO) continue;
-    if (!fits(rect, MIN_GAP)) continue;
+/**
+ * 帯（高さ102〜110px、幅390px）は crystal 3個 + 赤1個で既にかなり埋まっており、
+ * covered をそこへ「不透明部分の45%以上」で割り込ませようとすると、実測で
+ * 約半分のシードが確保に失敗する（既存アイテムと y 帯が重なり、x の空きも
+ * 128px 未満に断片化するため）。1回で失敗させず、条件を段階的に緩めて
+ * 再探索する。45%で見つからなければ25%、それでも無ければ10%（=完全に
+ * ノイズではない程度に端が見える下限）まで下げる。どの段でも見つからない
+ * ときだけ本当に置き場が無いので、そこで初めて WARNING を出す。
+ */
+const VISIBLE_RATIO_FALLBACKS = [VISIBLE_MIN_RATIO, 0.25, 0.1];
 
-    placed.push(rect);
-    return rect;
+async function reserveVisibleCell(prefix, shapes = RESERVED_CELL_SHAPES, ratios = VISIBLE_RATIO_FALLBACKS) {
+  for (const ratio of ratios) {
+    for (let attempt = 0; attempt < 600; attempt += 1) {
+      const name = `${prefix}-${pick(shapes)}`;
+      const size = await assetSize(AUTOTILE_BASE, name);
+      if (size.w > WORLD_WIDTH) continue;
+
+      const rect = {
+        ...size,
+        base: AUTOTILE_BASE,
+        name,
+        x: Math.round(between(0, WORLD_WIDTH - size.w)),
+        y: Math.round(between(-size.h * 0.4, WORLD_HEIGHT - size.h * 0.6)),
+      };
+      if (visibleArea(rect) < size.ow * size.oh * ratio) continue;
+      if (!fits(rect, MIN_GAP)) continue;
+
+      placed.push(rect);
+      return rect;
+    }
   }
 
-  console.log("WARNING: 赤セルを見える位置に確保できなかった");
+  console.log(`WARNING: ${prefix} セルの配置を確保できなかった`);
   return null;
+}
+
+async function reserveRedCell() {
+  return reserveVisibleCell("open-red");
+}
+
+/**
+ * 青ベースを最低1個、存在だけ保証する。
+ *
+ * 赤・covered と違って「見える位置」までは要求しない（もとの要件は
+ * 「青ベースを1つ以上」で可視性の言及が無い）。ratios に [0] を渡すと
+ * visibleArea の下限が0になり、パネルの裏でもどこでも置ければ通る。
+ *
+ * これが要る理由: 赤とcoveredの確保が rand() を追加で消費するようになり、
+ * 以降の島・fillGapsで引かれる色の乱数列がシードごとにずれた結果、
+ * 抽選（covered 62 / open-blue 38）だけに任せていた「青が1つ以上」が
+ * 一部のシードで満たされなくなった（実測で確認済み）。可視性を問わない
+ * 低コストな保証を足すことで、この巻き添えを防ぐ。
+ */
+async function reserveBlueCell() {
+  return reserveVisibleCell("open-blue", RESERVED_CELL_SHAPES, [0]);
 }
 
 /**

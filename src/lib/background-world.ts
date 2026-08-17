@@ -17,12 +17,12 @@ export type BackgroundPlacement = {
 };
 
 export const BACKGROUND_WORLD: BackgroundPlacement[] = [
+  { base: AUTOTILE_BASE, name: "covered-square", x: -36, y: 303, w: 128, h: 128 },
   { base: CRYSTAL_BASE, name: "accent-small", x: 117, y: 23, w: 40, h: 40 },
   { base: CRYSTAL_BASE, name: "cluster-medium", x: 73, y: 533, w: 110, h: 90 },
   { base: CRYSTAL_BASE, name: "cluster-wide", x: 238, y: 493, w: 120, h: 80 },
   { base: AUTOTILE_BASE, name: "open-red-square", x: 221, y: 35, w: 128, h: 128 },
-  { base: AUTOTILE_BASE, name: "open-blue-tall", x: 2, y: 283, w: 128, h: 192 },
-  { base: AUTOTILE_BASE, name: "open-blue-l", x: 274, y: 620, w: 144, h: 140 },
-  { base: AUTOTILE_BASE, name: "open-blue-square", x: 151, y: 278, w: 128, h: 128 },
-  { base: AUTOTILE_BASE, name: "covered-square", x: 42, y: 128, w: 128, h: 128 },
+  { base: AUTOTILE_BASE, name: "covered-square", x: 216, y: 591, w: 128, h: 128 },
+  { base: AUTOTILE_BASE, name: "open-blue-tall", x: 134, y: 274, w: 128, h: 192 },
+  { base: AUTOTILE_BASE, name: "open-blue-square", x: 66, y: 127, w: 128, h: 128 },
 ];
