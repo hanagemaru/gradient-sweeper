@@ -24,7 +24,7 @@ const REVIEW_DIR =
   process.env.REVIEW_DIR ?? "/tmp/gradient-sweeper-background-review";
 
 /**
- * 固定キャンバス方式（390x844を1枚だけ描く）。これが現在の本番の方式。
+ * 固定キャンバス方式（390x670を1枚だけ描く）。これが現在の本番の方式。
  *
  * ワールド=キャンバスなのでタイリングも複数ビューポート対応も不要になり、
  * UI_KEEPOUT・CRYSTAL_SLOTS も単一の実測値だけで足りる。
@@ -37,7 +37,17 @@ const CANVAS_MODE = process.env.CANVAS_MODE !== "0";
 
 // デスクトップまでカメラで覆えるサイズ。1920x1080 / 2560x1440 いずれも内側に収まる。
 const WORLD_WIDTH = CANVAS_MODE ? 390 : 2880;
-const WORLD_HEIGHT = CANVAS_MODE ? 844 : 1620;
+/*
+ * キャンバス高さ。`src/components/ui/pixel-ui.module.css` の `.scene { height }` と
+ * 必ず一致させること（ここがワールドの寸法、あちらが表示枠）。
+ *
+ * 当初は 844（iPhone 12〜14 の画面スペック）だったが、ブラウザは上下のUIで
+ * 100〜190 CSS px 持っていくため実機に 844 の高さは存在せず、常に高さ基準で
+ * 縮小されて左右に黒帯が出ていた。実機の svh 比（iOS Safari が 1.70〜1.75 に密集）
+ * に合わせて 390 * 1.72 ≒ 670 に詰めた。根拠の詳細は pixel-ui.module.css の
+ * 冒頭コメントと docs/tasks/I-canvas-fit.md にある。
+ */
+const WORLD_HEIGHT = CANVAS_MODE ? 670 : 1620;
 
 /**
  * 横方向のタイリング回数。1 なら繰り返しなしの一点物。
@@ -88,14 +98,24 @@ const MIN_GAP = 15;
 /**
  * CANVAS_MODE のキープアウト。
  *
- * 固定キャンバス(390x844)では画面サイズが1つしかないので、実測も1回で済む。
- * 390x844(スケール1)で実測した `.stack`（パネル＋言語トグル）は
- * x[35,355] y[120,488]。パネルの落ち影と余裕を足して10pxずつ広げる。
+ * 固定キャンバス(390x670)では画面サイズが1つしかないので、実測も1回で済む。
+ * ただし**ページごとにパネルの高さが違う**。倍率1（ビューポート 390x670）で
+ * 実測した `.stack`（パネル＋言語トグル）の下端は:
  *
- * y0=120 は `canvas.module.css` の `.content { padding-top: 120px }` と直結。
- * レイアウトを変えたらここも取り直すこと。
+ *   home     [120,488]   （パネル 120-423 + 言語トグル 437-488）
+ *   ranking  [120,511]
+ *   ta       [120,514]
+ *   result   [120,626]   ← 最も高い
+ *
+ * y1 は result を除く最大（ta の 514）に、落ち影と余裕の 10px を足した 524。
+ * result だけ別扱いにしているのは、`CANVAS_BOTTOM_BANDS` のコメントにある
+ * 「完全に見える or 完全にパネルの裏」を成立させるため（下側の帯は
+ * result のパネルの裏に完全に収まるように取ってある）。
+ *
+ * y0=120 は `pixel-ui.module.css` の `.content { padding-top: 120px }` と直結。
+ * レイアウトを変えたらここも実測を取り直すこと。
  */
-const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 110, y1: 498 };
+const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 110, y1: 524 };
 
 const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
@@ -142,7 +162,13 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  *
  * 帯は2つ:
  *   上 y[4,102]   … キープアウト上端 110 の上。98px しかないので小型のみ。
- *   下 y[504,840] … キープアウト下端 498 の下。336px。
+ *   下 y[524,626] … キープアウト下端 524 の下、result のパネル下端 626 の上。102px。
+ *
+ * 上の帯はキープアウト上端（110）基準なのでキャンバス高さを変えても動かない。
+ * 下の帯はページごとのパネル下端に挟まれた「クリーンゾーン」なので、
+ * キャンバス高さや `.content` の padding を変えたら必ず実測を取り直すこと。
+ * 844 のときの下帯は y[504,840] の 336px で、両方のクリスタルを段に分ける
+ * 余裕があった。670 では 102px しかない（下記 CANVAS_BOTTOM_BANDS 参照）。
  *
  * パネルの上に置くのは一番小さい accent-small だけ（指定）。
  * 残り2つは下の帯へ回す。
@@ -161,30 +187,52 @@ const CANVAS_CRYSTAL_SLOTS = [
 ];
 
 /**
- * 下の帯に入る2つの段。
+ * 下の帯に入る2つのクリスタルの Y。
  *
- * 2つを同じ高さに置くと横一列に並んで見えて不自然、という指摘への対応。
- * 下の帯（不透明 y[504,840]）を
- *   上段 y[504,652] / 下段 y[696,840]
- * に割り、間に 44px の空白を強制する。これで両者の高さは必ずずれる。
+ * 満たすべき条件が2つある。
  *
- * 値は矩形の Y。不透明部分が段に収まるよう oy を引いてある。
- *   cluster-medium 不透明 y = Y+6 .. Y+90  → 上段 Y in [498,562] / 下段 Y in [690,750]
- *   cluster-wide   不透明 y = Y+35 .. Y+80 → 上段 Y in [469,572] / 下段 Y in [661,760]
+ * 1. **どのページでも「完全に見える」か「完全にパネルの裏」のどちらかになる。**
+ *    中途半端に半分だけパネルへ潜り込む見え方は不可（既出の指摘）。
+ *    パネル下端はページごとに 488 / 511 / 514 / 626（CANVAS_UI_KEEPOUT の
+ *    コメント参照）なので、不透明部分を **y[524,626] に収める**と
+ *    home/ranking/ta では全部見え、result では全部パネルの裏に入る。
+ *    帯の上端 524 はキープアウト下端、下端 626 は result のパネル下端。
+ *
+ * 2. **2つを同じ高さに置くと横一列に並んで見えて不自然**（既出の指摘）。
+ *    帯が 336px あった 844 のときは上下2段に割って 44px の空白を強制できたが、
+ *    670 では帯が 102px しかなく、不透明部分の合計 129px（84 + 45）すら入らない。
+ *    段に割るのはやめ、**不透明部分の中心を 24px 以上ずらす**ことで代替する。
+ *    横方向は帯幅 370px を使って `fits()` の MIN_GAP が離してくれるので、
+ *    「中心が少しずれた2つが横に離れて置かれる」絵になる。
+ *
+ * 値は矩形の Y。不透明部分が帯に収まるよう oy を引いてある。
+ *   cluster-medium 不透明 y = Y+6 .. Y+90（84px）→ 中心 Y+48
+ *   cluster-wide   不透明 y = Y+35 .. Y+80（45px）→ 中心 Y+57.5
+ *
+ *   medium が上: medium Y in [518,520] → 中心 [566,568]
+ *               wide   Y in [535,546] → 中心 [592.5,603.5]   ずれ >= 24.5
+ *   wide が上:   wide   Y in [489,497] → 中心 [546.5,554.5]
+ *               medium Y in [532,536] → 中心 [580,584]       ずれ >= 25.5
  */
 const CANVAS_BOTTOM_BANDS = {
-  "cluster-medium": { upper: [498, 562], lower: [690, 750] },
-  "cluster-wide": { upper: [469, 572], lower: [661, 760] },
+  "cluster-medium": { upper: [518, 520], lower: [532, 536] },
+  "cluster-wide": { upper: [489, 497], lower: [535, 546] },
 };
 
-/** どちらが上段に入るかはシードごとに入れ替える（2案で同じ絵にならないように）。 */
+/**
+ * どちらを上に置くかはシードごとに入れ替える（2案で同じ絵にならないように）。
+ *
+ * `upper` / `lower` は「帯の中で上に来るのはどちらか」で選ぶ枠であって、
+ * 段そのものではない（上記のとおり段には割れない）。medium が上のときは
+ * medium が `upper`、wide が `lower` の枠を使う。
+ */
 function resolveCanvasBottomBands(slots) {
   const mediumOnTop = rand() < 0.5;
   return slots.map((slot) => {
     const bands = CANVAS_BOTTOM_BANDS[slot.name];
     if (!bands) return slot;
-    const onTop = slot.name === "cluster-medium" ? mediumOnTop : !mediumOnTop;
-    const [y0, y1] = onTop ? bands.upper : bands.lower;
+    const useUpper = slot.name === "cluster-medium" ? mediumOnTop : !mediumOnTop;
+    const [y0, y1] = useUpper ? bands.upper : bands.lower;
     return { ...slot, y0, y1 };
   });
 }

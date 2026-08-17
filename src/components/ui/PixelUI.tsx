@@ -47,9 +47,11 @@ export function PixelScene({
   const { language } = useI18n();
 
   return (
-    // .stage が黒いレターボックス、.scene が 390x844 の固定キャンバス。
-    // 中身が 844px を超えるページはキャンバス内の .scroll だけがスクロールし、
+    // .stage が黒いレターボックス、.scene が 390x670 の固定キャンバス。
+    // 中身がキャンバス高さを超えるページはキャンバス内の .scroll だけがスクロールし、
     // 背景と黒帯は動かない。
+    // 高さ 670 の根拠は pixel-ui.module.css のコメントを参照（844 は実機ブラウザに
+    // 存在しない高さだったので詰めた）。
     <div className={styles.stage}>
       <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
         <PixelBackdrop />
