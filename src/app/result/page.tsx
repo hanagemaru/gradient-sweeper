@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/i18n/useI18n";
 import { formatTime } from "@/hooks/useTimer";
 import { GameMode, Difficulty } from "@/types/game";
+import { useResultSubmission } from "./useResultSubmission";
 import {
   PixelButton,
   PixelButtonGroup,
@@ -14,8 +15,6 @@ import {
   PixelStats,
   PixelTextField,
 } from "@/components/ui/PixelUI";
-
-const PLAYER_NAME_KEY = "gradient_sweeper_player_name";
 
 function ResultLoading({ label }: { label: string }) {
   return (
@@ -27,9 +26,15 @@ function ResultLoading({ label }: { label: string }) {
   );
 }
 
+/**
+ * `/result` への直接URLアクセスや、ブラウザの戻る/進むで単独表示された場合の
+ * フルページ版。通常のプレイ導線（Give Up・TA自動遷移）は `/game` 側の
+ * `GameResultOverlay` を使うようになったため、こちらは直接アクセス用の
+ * フォールバックとして残している。表示・送信ロジックは `useResultSubmission`
+ * を共有している。
+ */
 function ResultContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { t } = useI18n();
 
   const mode = searchParams.get("mode") as GameMode;
@@ -43,59 +48,8 @@ function ResultContent() {
   const penaltyMs = parseInt(searchParams.get("penaltyMs") || "0", 10);
   const finalTimeMs = timeMs + penaltyMs;
 
-  const [playerName, setPlayerName] = useState("");
-  const [isNavigating, setIsNavigating] = useState(false);
-
-  useEffect(() => {
-    const savedName = localStorage.getItem(PLAYER_NAME_KEY);
-    if (savedName) setPlayerName(savedName);
-  }, []);
-
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (isNavigating) return;
-
-    const trimmedName = playerName.trim();
-    if (trimmedName) localStorage.setItem(PLAYER_NAME_KEY, trimmedName);
-
-    if (mode === "endless") {
-      fetch("/api/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          endless_level: level,
-          miss_count: misses,
-          revive_count: revives,
-          player_name: trimmedName || undefined,
-          score,
-        }),
-      }).catch((error) => console.error("Failed to submit score:", error));
-    } else {
-      fetch("/api/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          difficulty,
-          time_ms: timeMs,
-          penalty_ms: penaltyMs,
-          miss_count: misses,
-          revive_count: revives,
-          player_name: trimmedName || undefined,
-        }),
-      }).catch((error) => console.error("Failed to submit score:", error));
-    }
-
-    setIsNavigating(true);
-    router.push(`/ranking?mode=${mode}${difficulty ? `&difficulty=${difficulty}` : ""}`);
-  };
-
-  const handleSkip = () => {
-    if (isNavigating) return;
-    setIsNavigating(true);
-    router.push("/");
-  };
+  const { playerName, setPlayerName, handleSubmit, handleSkip, isNavigating } =
+    useResultSubmission({ mode, difficulty, level, misses, revives, score, timeMs, penaltyMs });
 
   if (isNavigating) return <ResultLoading label={t("common.loading")} />;
 
