@@ -416,8 +416,15 @@ function fits(rect, margin) {
 /**
  * 縦方向にワールドへ掛かっていれば採用。
  * x はトーラスなのでどの値でも有効（書き出し時に横へ複製される）。
+ *
+ * CANVAS_MODE では上下端は横端と違って「回り込む」先が無い、ただの
+ * キャンバスの外なので、はみ出しは折り返しではなく素の切れ端になる
+ * （指摘: 画面上端でクリスタル／セルが物理的に切れて見える）。
+ * よって CANVAS_MODE だけは「掛かっている」ではなく「完全に収まっている」
+ * を採用条件にする。
  */
 function touchesWorld(rect) {
+  if (CANVAS_MODE) return rect.y >= 0 && rect.y + rect.h <= WORLD_HEIGHT;
   return rect.y < WORLD_HEIGHT && rect.y + rect.h > 0;
 }
 
@@ -454,6 +461,44 @@ function clearOfUiPanel(rect) {
     }
   }
   return true;
+}
+
+/**
+ * セルがパネルの縁から「ほんの少しだけ」覗いていないか。
+ *
+ * セルはパネルに重なってよい規則（クリスタルと違い clearOfUiPanel は適用しない）
+ * だが、重なりがちょうど浅いと、パネルの角からわずかに角だけ覗く見え方になり、
+ * ノイズにしか見えない（指摘: ホーム画面でパネル縁からわずかに覗く断片）。
+ *
+ * 最初は面積比（見えている面積 / 不透明部分の面積）で判定していたが、
+ * 大きい形状（例: 144x140）だと面積比では数%でも実ピクセルでは十分読める
+ * 大きさになり、見逃してしまうケースが実測で見つかった。UI_KEEPOUT は
+ * クリスタル用に落ち影ぶんの余裕を持たせた広めの値なので、この余裕の内側
+ * ぎりぎりで止まった形状は「ほぼ隠れている」と面積比では判定されるが、
+ * 実際のパネル本体の縁からは十分はみ出して見える。
+ *
+ * そのため判定は「面積比」ではなく「keepoutの外に何px出ているか」で行う。
+ * まったく重ならない、または keepout に完全に収まっている（はみ出しゼロ）
+ * ならOK。はみ出しがあるなら、読めるモチーフの最小サイズ（MIN_ONSCREEN）
+ * 以上はみ出していることを要求する。中途半端な数〜十数pxのはみ出しだけを弾く。
+ */
+function noPanelSliver(rect) {
+  const x0 = rect.x + rect.ox;
+  const y0 = rect.y + rect.oy;
+  const x1 = x0 + rect.ow;
+  const y1 = y0 + rect.oh;
+  const overlapsKeepout =
+    x0 < UI_KEEPOUT.x1 && x1 > UI_KEEPOUT.x0 && y0 < UI_KEEPOUT.y1 && y1 > UI_KEEPOUT.y0;
+  if (!overlapsKeepout) return true;
+
+  const protrusions = [
+    UI_KEEPOUT.x0 - x0,
+    x1 - UI_KEEPOUT.x1,
+    UI_KEEPOUT.y0 - y0,
+    y1 - UI_KEEPOUT.y1,
+  ].filter((v) => v > 0);
+  if (protrusions.length === 0) return true;
+  return Math.max(...protrusions) >= MIN_ONSCREEN;
 }
 
 /**
@@ -545,6 +590,9 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
       // 内側にもっと良い位置があるかもしれないので、探索は続ける。
       if (!farFromSameAsset(rect)) continue;
       if (isCrystal && !clearOfUiPanel(rect)) continue;
+      // セルはパネルに重なってよいが、縁からわずかに覗くだけの状態は避ける
+      // （noPanelSliver のコメント参照）。
+      if (CANVAS_MODE && !isCrystal && !noPanelSliver(rect)) continue;
       // 画面に破片しか映らない位置は最初から採らない。ここで弾いておけば
       // fillGaps が代わりの位置を探すので、密度を落とさずにノイズだけ減る。
       if (CANVAS_MODE && !hasReadableCopy(rect)) continue;
@@ -817,15 +865,21 @@ const COVERED_RESERVE_SHAPES = ["square", "wide", "tall"];
  * covered をそこへ「不透明部分の45%以上」で割り込ませようとすると、実測で
  * 約半分のシードが確保に失敗する（既存アイテムと y 帯が重なり、x の空きも
  * 128px 未満に断片化するため）。1回で失敗させず、条件を段階的に緩めて
- * 再探索する。45%で見つからなければ25%、それでも無ければ10%（=完全に
- * ノイズではない程度に端が見える下限）まで下げる。どの段でも見つからない
- * ときだけ本当に置き場が無いので、そこで初めて WARNING を出す。
+ * 再探索する。
+ *
+ * 「見える位置」を要求する場合（赤・covered）は探索を2段に分ける。
+ *   1st: 十分見えている（VISIBLE_MIN_RATIO 以上）位置を探す
+ *   2nd: 見つからなければ、noPanelSliver だけを満たす位置で妥協する
+ *        （見えなくてもいいが、中途半端な覗きにだけはしない）
+ * 可視性を要求しない場合（青）は 2nd から始める。
+ *
+ * どちらの段も noPanelSliver は必ず通すので、中途半端な覗きは絶対に出ない。
  */
-const VISIBLE_RATIO_FALLBACKS = [VISIBLE_MIN_RATIO, 0.25, 0.1];
+async function reserveVisibleCell(prefix, shapes = RESERVED_CELL_SHAPES, { requireVisible = true } = {}) {
+  const passes = requireVisible ? [true, false] : [false];
 
-async function reserveVisibleCell(prefix, shapes = RESERVED_CELL_SHAPES, ratios = VISIBLE_RATIO_FALLBACKS) {
-  for (const ratio of ratios) {
-    for (let attempt = 0; attempt < 600; attempt += 1) {
+  for (const wantVisible of passes) {
+    for (let attempt = 0; attempt < 1200; attempt += 1) {
       const name = `${prefix}-${pick(shapes)}`;
       const size = await assetSize(AUTOTILE_BASE, name);
       if (size.w > WORLD_WIDTH) continue;
@@ -835,9 +889,15 @@ async function reserveVisibleCell(prefix, shapes = RESERVED_CELL_SHAPES, ratios 
         base: AUTOTILE_BASE,
         name,
         x: Math.round(between(0, WORLD_WIDTH - size.w)),
-        y: Math.round(between(-size.h * 0.4, WORLD_HEIGHT - size.h * 0.6)),
+        // y はキャンバス内に完全に収める（上下端でスプライトが物理的に
+        // 切れて見えるのを防ぐ。touchesWorld の CANVAS_MODE 分岐と同じ理由）。
+        y: Math.round(between(0, WORLD_HEIGHT - size.h)),
       };
-      if (visibleArea(rect) < size.ow * size.oh * ratio) continue;
+      if (!noPanelSliver(rect)) continue;
+      if (wantVisible) {
+        const ratio = visibleArea(rect) / (rect.ow * rect.oh);
+        if (ratio < VISIBLE_MIN_RATIO) continue;
+      }
       if (!fits(rect, MIN_GAP)) continue;
 
       placed.push(rect);
@@ -857,8 +917,9 @@ async function reserveRedCell() {
  * 青ベースを最低1個、存在だけ保証する。
  *
  * 赤・covered と違って「見える位置」までは要求しない（もとの要件は
- * 「青ベースを1つ以上」で可視性の言及が無い）。ratios に [0] を渡すと
- * visibleArea の下限が0になり、パネルの裏でもどこでも置ければ通る。
+ * 「青ベースを1つ以上」で可視性の言及が無い）。requireVisible: false は
+ * 2nd段（ほぼ隠れている位置）から探索するので、可視性は問わないが
+ * noPanelSliver は変わらず効くため、中途半端な覗きにはならない。
  *
  * これが要る理由: 赤とcoveredの確保が rand() を追加で消費するようになり、
  * 以降の島・fillGapsで引かれる色の乱数列がシードごとにずれた結果、
@@ -867,7 +928,7 @@ async function reserveRedCell() {
  * 低コストな保証を足すことで、この巻き添えを防ぐ。
  */
 async function reserveBlueCell() {
-  return reserveVisibleCell("open-blue", RESERVED_CELL_SHAPES, [0]);
+  return reserveVisibleCell("open-blue", RESERVED_CELL_SHAPES, { requireVisible: false });
 }
 
 /**
