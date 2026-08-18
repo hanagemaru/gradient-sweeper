@@ -111,10 +111,31 @@ iOS 6割 / Android 4割で重み付けした期待充填率は次のとおりで
 
 結果（採用シード）: 中心のずれ 30.5px、水平すきま 67px、半分潜り込みなし。
 
+## 背景ワールドの作り直し
+
+キャンバス高さを 670 にしたので背景ワールドも作り直した。その過程で
+「未開封セルを使う」「画面端で欠けない」「パネルの縁から少しだけ覗かない」
+「横一列に並ばない」という要求が加わり、生成スクリプトの規則が増えている。
+
+**規則・手順・シードの選び直し方は
+[`docs/technical/BACKGROUND-WORLD.md`](../technical/BACKGROUND-WORLD.md)**
+にまとめた。見え方の判定は `scripts/background-world-rules.mjs` に集約し、
+検証用に `scripts/check-background-world.mjs` を追加してある。
+
+```bash
+node scripts/generate-background-world.mjs   # 生成
+node scripts/check-background-world.mjs      # 検証
+```
+
+採用シードは `6002`。制約を変えると同じシードでも別の絵になるので、
+規則をいじったら選び直すこと。
+
 ## 触ってよいファイル
 
 - `src/components/ui/pixel-ui.module.css` / `PixelUI.tsx`
-- `scripts/generate-background-world.mjs` / `src/lib/background-world.ts`（生成物）
+- `scripts/generate-background-world.mjs` / `background-world-rules.mjs` /
+  `check-background-world.mjs` / `src/lib/background-world.ts`（生成物）
+- `docs/technical/BACKGROUND-WORLD.md`
 - このファイル、`docs/tasks/README.md` のレーン表
 
 ## 触ってはいけないファイル

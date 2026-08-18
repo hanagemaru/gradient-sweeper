@@ -17,12 +17,11 @@ export type BackgroundPlacement = {
 };
 
 export const BACKGROUND_WORLD: BackgroundPlacement[] = [
-  { base: CRYSTAL_BASE, name: "accent-small", x: 252, y: 9, w: 40, h: 40 },
-  { base: CRYSTAL_BASE, name: "cluster-medium", x: 16, y: 519, w: 110, h: 90 },
-  { base: CRYSTAL_BASE, name: "cluster-wide", x: 191, y: 544, w: 120, h: 80 },
-  { base: AUTOTILE_BASE, name: "open-red-square", x: 15, y: 40, w: 128, h: 128 },
-  { base: AUTOTILE_BASE, name: "covered-wide", x: 36, y: 207, w: 192, h: 128 },
-  { base: AUTOTILE_BASE, name: "open-blue-tall", x: 256, y: 81, w: 128, h: 192 },
-  { base: AUTOTILE_BASE, name: "open-blue-wide", x: 30, y: 367, w: 192, h: 128 },
-  { base: AUTOTILE_BASE, name: "covered-tall", x: 272, y: 294, w: 128, h: 192 },
+  { base: CRYSTAL_BASE, name: "accent-small", x: 295, y: 41, w: 40, h: 40 },
+  { base: CRYSTAL_BASE, name: "cluster-medium", x: 17, y: 520, w: 110, h: 90 },
+  { base: CRYSTAL_BASE, name: "cluster-wide", x: 187, y: 545, w: 120, h: 80 },
+  { base: AUTOTILE_BASE, name: "open-red-l-rotated", x: 14, y: 41, w: 144, h: 140 },
+  { base: AUTOTILE_BASE, name: "covered-square", x: 177, y: 241, w: 128, h: 128 },
+  { base: AUTOTILE_BASE, name: "open-blue-square", x: 227, y: 398, w: 128, h: 128 },
+  { base: AUTOTILE_BASE, name: "covered-tall", x: 0, y: 275, w: 128, h: 192 },
 ];

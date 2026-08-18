@@ -12,10 +12,24 @@
  *   - セル同士・セルとクリスタルは重ねない（棄却サンプリングで最小離隔を確保）。
  *
  * 確認用画像（全景と各画面比率の切り取り）は REVIEW_DIR へ出力する。リポジトリには含めない。
+ * 確認用画像にはUIパネルが写らないので、覗きと横並びは実画面で見ること。
+ *
+ * **手順・規則・シードの選び直し方は docs/technical/BACKGROUND-WORLD.md にまとまっている。**
+ * 見え方の判定に関わる定数と関数は `background-world-rules.mjs` にあり、
+ * 検証スクリプト `check-background-world.mjs` と共有している。
+ * 規則をこちらだけに書くと検証が素通りするので、必ず rules 側へ置くこと。
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  MIN_ONSCREEN,
+  isPanelSliver,
+  looksLikeRow,
+  screenRectOf,
+} from "./background-world-rules.mjs";
 
 const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
 const AUTOTILE_BASE = "/assets/frostbound/cell-autotile-v2";
@@ -36,9 +50,10 @@ const REVIEW_DIR =
 const CANVAS_MODE = process.env.CANVAS_MODE !== "0";
 
 // デスクトップまでカメラで覆えるサイズ。1920x1080 / 2560x1440 いずれも内側に収まる。
-const WORLD_WIDTH = CANVAS_MODE ? 390 : 2880;
+const WORLD_WIDTH = CANVAS_MODE ? CANVAS_WIDTH : 2880;
 /*
- * キャンバス高さ。`src/components/ui/pixel-ui.module.css` の `.scene { height }` と
+ * キャンバス高さ（CANVAS_HEIGHT は background-world-rules.mjs 側で定義）。
+ * `src/components/ui/pixel-ui.module.css` の `.scene { height }` と
  * 必ず一致させること（ここがワールドの寸法、あちらが表示枠）。
  *
  * 当初は 844（iPhone 12〜14 の画面スペック）だったが、ブラウザは上下のUIで
@@ -47,7 +62,7 @@ const WORLD_WIDTH = CANVAS_MODE ? 390 : 2880;
  * に合わせて 390 * 1.72 ≒ 670 に詰めた。根拠の詳細は pixel-ui.module.css の
  * 冒頭コメントと docs/tasks/I-canvas-fit.md にある。
  */
-const WORLD_HEIGHT = CANVAS_MODE ? 670 : 1620;
+const WORLD_HEIGHT = CANVAS_MODE ? CANVAS_HEIGHT : 1620;
 
 /**
  * 横方向のタイリング回数。1 なら繰り返しなしの一点物。
@@ -340,11 +355,11 @@ function mulberry32(seed) {
  * 既定シードは、本番で採用した配置を再現する値。
  * 素で再実行すればコミット済みの `src/lib/background-world.ts` と一致する。
  *
- * CANVAS_MODE の 5004 は、覗き・横並び・クリスタル欠けの制約を入れたあとに
- * 30シードを比較して選んだもの（可視セル4個で最も密度と散らばりが良い）。
- * 制約を変えると同じシードでも別の絵になるので、変更したら選び直すこと。
+ * CANVAS_MODE の 6002 は、覗き・横並び・クリスタル欠けの制約を入れたあとに
+ * 30シードを比較して選んだもの。制約を変えると同じシードでも別の絵になるので、
+ * 変更したら選び直すこと（選び方は docs/technical/BACKGROUND-WORLD.md）。
  */
-const DEFAULT_SEED = CANVAS_MODE ? 5004 : 20260815;
+const DEFAULT_SEED = CANVAS_MODE ? 6002 : 20260815;
 const rand = mulberry32(Number(process.env.SEED ?? DEFAULT_SEED));
 const between = (lo, hi) => lo + rand() * (hi - lo);
 const pick = (list) => list[Math.floor(rand() * list.length)];
@@ -478,188 +493,28 @@ function clearOfUiPanel(rect) {
 }
 
 /**
- * メインメニュー（ホーム）の遮蔽物。倍率1のDOMから実測した値。
- *
- * `UI_KEEPOUT` はクリスタル用に「全ページの和 + 落ち影の余裕」を取った
- * 広めの矩形なので、セルの見え方を判定する用途には使えない。ホームでは
- * パネル本体は y423 で終わり、言語トグルとの間（423〜437）と、トグルの
- * 左右は背景が見えている。この差を無視して UI_KEEPOUT で「隠れている」と
- * 判定すると、実際には数pxだけ覗いているセルを通してしまう。
- *
- * 判定はホームに対してだけ行う（指定）。
- */
-const HOME_OCCLUDERS = [
-  { x0: 35, x1: 355, y0: 120, y1: 423 }, // .panel
-  { x0: 134, x1: 256, y0: 437, y1: 488 }, // .languageToggle
-];
-
-const overlap1d = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
-
-/** ホームで実際に見えている不透明部分の面積（画面内、かつ遮蔽物の外）。 */
-function homeVisibleArea(x0, y0, x1, y1) {
-  const onScreen = overlap1d(x0, x1, 0, WORLD_WIDTH) * overlap1d(y0, y1, 0, WORLD_HEIGHT);
-  let hidden = 0;
-  for (const o of HOME_OCCLUDERS) {
-    hidden += overlap1d(x0, x1, o.x0, o.x1) * overlap1d(y0, y1, o.y0, o.y1);
-  }
-  return Math.max(0, onScreen - hidden);
-}
-
-/**
- * 見えている領域に収まる最大の矩形の「短辺」を返す。
- *
- * 見えている領域 = 不透明部分 ∩ 画面 − 遮蔽物。遮蔽物が2つあるので
- * この領域はL字やコの字になり、単純な帯の計算では測れない。実際、
- * 言語トグルを無視して「パネルの下に66pxの帯がある」と判定した配置が、
- * トグルに分断されて 14px・38px・23px の細切れになっていた（実測）。
- *
- * 遮蔽物の辺でグリッドに切り、遮蔽されていないセルだけから成る矩形を
- * 全通り試して最大の短辺を求める。グリッドはたかだか 4x4 程度なので
- * 総当たりで足りる。
- */
-function largestVisibleSide(x0, y0, x1, y1) {
-  const vx0 = Math.max(x0, 0);
-  const vx1 = Math.min(x1, WORLD_WIDTH);
-  const vy0 = Math.max(y0, 0);
-  const vy1 = Math.min(y1, WORLD_HEIGHT);
-  if (vx1 <= vx0 || vy1 <= vy0) return 0;
-
-  const xs = new Set([vx0, vx1]);
-  const ys = new Set([vy0, vy1]);
-  for (const o of HOME_OCCLUDERS) {
-    for (const v of [o.x0, o.x1]) if (v > vx0 && v < vx1) xs.add(v);
-    for (const v of [o.y0, o.y1]) if (v > vy0 && v < vy1) ys.add(v);
-  }
-  const xa = [...xs].sort((a, b) => a - b);
-  const ya = [...ys].sort((a, b) => a - b);
-
-  const free = [];
-  for (let r = 0; r + 1 < ya.length; r += 1) {
-    const row = [];
-    for (let c = 0; c + 1 < xa.length; c += 1) {
-      const mx = (xa[c] + xa[c + 1]) / 2;
-      const my = (ya[r] + ya[r + 1]) / 2;
-      const hidden = HOME_OCCLUDERS.some(
-        (o) => mx > o.x0 && mx < o.x1 && my > o.y0 && my < o.y1,
-      );
-      row.push(hidden ? 0 : 1);
-    }
-    free.push(row);
-  }
-
-  let best = 0;
-  for (let r0 = 0; r0 < free.length; r0 += 1) {
-    for (let r1 = r0; r1 < free.length; r1 += 1) {
-      const h = ya[r1 + 1] - ya[r0];
-      let runWidth = 0;
-      for (let c = 0; c < free[0].length; c += 1) {
-        let openColumn = true;
-        for (let r = r0; r <= r1; r += 1) if (!free[r][c]) openColumn = false;
-        if (!openColumn) {
-          runWidth = 0;
-          continue;
-        }
-        runWidth += xa[c + 1] - xa[c];
-        best = Math.max(best, Math.min(runWidth, h));
-      }
-    }
-  }
-  return best;
-}
-
-/**
  * セルがメニューパネルの縁から「ほんの少しだけ」覗いていないか。
- *
- * セルはパネルに重なってよい規則（クリスタルと違い clearOfUiPanel は適用しない）
- * だが、重なりが浅いと縁から細い帯だけが覗き、ノイズにしか見えない（指摘）。
- *
- * 面積比で判定すると、大きい形状ほど同じ「細さ」でも比率が上がって判定が
- * ぶれる。見たいのは細さそのものなので、見えている領域に収まる最大の矩形の
- * 短辺が、読める大きさ（MIN_ONSCREEN）に届いていることを要求する。
- *
- *   - 完全に隠れている（可視面積0）→ OK（見えないので破綻しない）
- *   - それ以外 → 見えている塊が MIN_ONSCREEN 角の正方形を含むこと
+ * 規則の本体と根拠は `background-world-rules.mjs` にある。
  */
-/**
- * 見え方の判定に使う「実際に画面へ出る位置」の不透明矩形。
- *
- * `settleToward` は x をタイル座標のまま探索し、採用が決まってから
- * [0, TILE_WIDTH) へ正規化する。正規化前の x で見え方を判定すると、
- * 判定時は画面外だったものが正規化で画面内へ移動し、覗きになって
- * すり抜ける（実測: x=-373 で「完全に隠れている」と判定 → 正規化後 x=17 で
- * パネル左に 14px の細い覗きになっていた）。
- *
- * 正規化したうえで、トーラスの複製のうち最も画面に出るものを返す。
- * `dropSliverCopies` が残すのも可視面積が最大の複製なので、判定と実際に
- * 描かれるものが一致する。
- */
-function screenRectOf(rect) {
-  const nx = ((rect.x % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH;
-  const y0 = rect.y + rect.oy;
-  const y1 = y0 + rect.oh;
-  let best = null;
-  let bestArea = -1;
-  for (const shift of [-TILE_WIDTH, 0, TILE_WIDTH]) {
-    const x0 = nx + rect.ox + shift;
-    const x1 = x0 + rect.ow;
-    const area = overlap1d(x0, x1, 0, WORLD_WIDTH) * overlap1d(y0, y1, 0, WORLD_HEIGHT);
-    if (area > bestArea) {
-      bestArea = area;
-      best = { x0, y0, x1, y1 };
-    }
-  }
-  return best;
-}
-
 function noPanelSliver(rect) {
-  const { x0, y0, x1, y1 } = screenRectOf(rect);
-  if (homeVisibleArea(x0, y0, x1, y1) <= 0) return true;
-  return largestVisibleSide(x0, y0, x1, y1) >= MIN_ONSCREEN;
+  return !isPanelSliver(screenRectOf(rect));
 }
 
 /**
  * 別のモチーフと「横一列」に並んでいないか（指摘: 要素が真横に並ぶ）。
- *
- * ホームのパネルは幅320・高さ303あり、キャンバス390x670の中央を占める。
- * つまりセルが読める大きさで見えるのは上下の帯だけで、放っておくと
- * 同じ帯に入った2〜3個が同じ高さに揃い、画面を横切る一本の線に見える。
- *
- * 見えているモチーフ同士だけを対象に、横に離れている（重なっていない）なら
- * 不透明部分の中心Yを ROW_MIN_OFFSET 以上ずらすことを要求する。
- * 隠れているものは線を作らないので対象外。x が重なっている縦の並びは
- * 「積み上がった島」に見えるので、これも対象外。
+ * 規則の本体と根拠は `background-world-rules.mjs` にある。
  */
-const ROW_MIN_OFFSET = 40;
-
 function notRowAligned(rect) {
   const me = screenRectOf(rect);
-  if (homeVisibleArea(me.x0, me.y0, me.x1, me.y1) <= 0) return true;
-  const cy = (me.y0 + me.y1) / 2;
-
-  for (const other of placed) {
-    const it = screenRectOf(other);
-    if (homeVisibleArea(it.x0, it.y0, it.x1, it.y1) <= 0) continue;
-
-    const ocy = (it.y0 + it.y1) / 2;
-    if (Math.abs(cy - ocy) >= ROW_MIN_OFFSET) continue;
-    // x が重なっていれば縦に積まれた見え方なので許容する。
-    if (overlap1d(me.x0, me.x1, it.x0, it.x1) > 0) continue;
-    return false;
-  }
-  return true;
+  return !placed.some((other) => looksLikeRow(me, screenRectOf(other)));
 }
 
-/**
- * 画面にほんの少しだけ入っているセルはノイズに見える、という指摘への対応。
- *
- * 「モチーフとして読める最小の大きさ」をゲームの1セル分（36px）とする。
- * 実測（前回の3シード）では、意味のあるモチーフの可視幅・可視高さは 53px 以上、
- * ノイズに見えたものは 28px 以下と、この境界できれいに分かれていた。
- *
- * 端で切れていないものは、小さくてもノイズではないので対象外
+/*
+ * 画面にほんの少しだけ入っているセルはノイズに見える、という指摘への対応で
+ * 使う「読める最小の大きさ」は MIN_ONSCREEN（background-world-rules.mjs）。
+ * 端で切れていないものは小さくてもノイズではないので対象外にしている
  * （クリスタルの accent-small は不透明部分が 34x33 しかない）。
  */
-const MIN_ONSCREEN = 36;
 
 /** 画面に写る不透明部分の幅と高さ。x はトーラスなので複製位置ごとに測る。 */
 function onScreenExtent(rect, shift) {
