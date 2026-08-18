@@ -39,10 +39,20 @@ export function PixelScene({
   children,
   languageToggle = false,
   width = "normal",
+  overlay = false,
 }: {
   children: ReactNode;
   languageToggle?: boolean;
   width?: "menu" | "normal" | "wide";
+  /**
+   * 背景ワールドを描かず、いま表示されている画面の上に重ねるモード。
+   *
+   * 黒いレターボックスの代わりにビューポート全面の半透明の暗幕を敷き、
+   * z-index を上げる。キャンバス（390x670）と transform は通常モードと
+   * 共有しているので、`PixelScene` を使っていない `/game` の上に重ねても、
+   * ホームの上に重ねたときとパネルの寸法・位置・拡大率が一致する。
+   */
+  overlay?: boolean;
 }) {
   const { language } = useI18n();
 
@@ -52,11 +62,11 @@ export function PixelScene({
     // 背景と黒帯は動かない。
     // 高さ 670 の根拠は pixel-ui.module.css のコメントを参照（844 は実機ブラウザに
     // 存在しない高さだったので詰めた）。
-    <div className={styles.stage}>
+    <div className={cx(styles.stage, overlay && styles.stageOverlay)}>
       <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
-        <PixelBackdrop />
+        {!overlay && <PixelBackdrop />}
         <div className={styles.scroll}>
-          <main className={styles.content}>
+          <main className={cx(styles.content, overlay && styles.contentOverlay)}>
             <div
               className={cx(
                 styles.stack,
