@@ -201,22 +201,32 @@ const CANVAS_CRYSTAL_SLOTS = [
  * 2. **2つを同じ高さに置くと横一列に並んで見えて不自然**（既出の指摘）。
  *    帯が 336px あった 844 のときは上下2段に割って 44px の空白を強制できたが、
  *    670 では帯が 102px しかなく、不透明部分の合計 129px（84 + 45）すら入らない。
- *    段に割るのはやめ、**不透明部分の中心を 24px 以上ずらす**ことで代替する。
+ *    段に割るのはやめ、**不透明部分の中心をできるだけずらす**ことで代替する。
  *    横方向は帯幅 370px を使って `fits()` の MIN_GAP が離してくれるので、
- *    「中心が少しずれた2つが横に離れて置かれる」絵になる。
+ *    「中心がずれた2つが横に離れて置かれる」絵になる。
  *
  * 値は矩形の Y。不透明部分が帯に収まるよう oy を引いてある。
  *   cluster-medium 不透明 y = Y+6 .. Y+90（84px）→ 中心 Y+48
  *   cluster-wide   不透明 y = Y+35 .. Y+80（45px）→ 中心 Y+57.5
  *
+ * 帯 y[524,626] に収める制約から、取りうる中心の範囲は
+ *   medium 中心 ∈ [566, 584]   (Y ∈ [518, 536])
+ *   wide   中心 ∈ [546.5, 603.5] (Y ∈ [489, 546])
+ * となり、**中心のずれは原理的に 37.5px が上限**。セル同士に課している
+ * ROW_MIN_OFFSET(40) はこの帯では達成できないので、この2つだけは
+ * 上限いっぱいまで離すことで代える（`notRowAligned` は CANVAS_MODE の
+ * クリスタルには掛からない。予約枠でしか置かれないため）。
+ * シルエットも 84px の縦長と 45px の平たい塊で大きく違うので、
+ * 中心が 33px 離れていれば横一線には見えない。
+ *
  *   medium が上: medium Y in [518,520] → 中心 [566,568]
- *               wide   Y in [535,546] → 中心 [592.5,603.5]   ずれ >= 24.5
- *   wide が上:   wide   Y in [489,497] → 中心 [546.5,554.5]
- *               medium Y in [532,536] → 中心 [580,584]       ずれ >= 25.5
+ *               wide   Y in [543,546] → 中心 [600.5,603.5]  ずれ >= 32.5
+ *   wide が上:   wide   Y in [489,492] → 中心 [546.5,549.5]
+ *               medium Y in [534,536] → 中心 [582,584]      ずれ >= 32.5
  */
 const CANVAS_BOTTOM_BANDS = {
-  "cluster-medium": { upper: [518, 520], lower: [532, 536] },
-  "cluster-wide": { upper: [489, 497], lower: [535, 546] },
+  "cluster-medium": { upper: [518, 520], lower: [534, 536] },
+  "cluster-wide": { upper: [489, 492], lower: [543, 546] },
 };
 
 /**
@@ -327,10 +337,14 @@ function mulberry32(seed) {
 }
 
 /**
- * 既定シードは、本番で採用した配置（比較5案のうちシード5）を再現する値。
+ * 既定シードは、本番で採用した配置を再現する値。
  * 素で再実行すればコミット済みの `src/lib/background-world.ts` と一致する。
+ *
+ * CANVAS_MODE の 5004 は、覗き・横並び・クリスタル欠けの制約を入れたあとに
+ * 30シードを比較して選んだもの（可視セル4個で最も密度と散らばりが良い）。
+ * 制約を変えると同じシードでも別の絵になるので、変更したら選び直すこと。
  */
-const DEFAULT_SEED = CANVAS_MODE ? 20265786 : 20260815;
+const DEFAULT_SEED = CANVAS_MODE ? 5004 : 20260815;
 const rand = mulberry32(Number(process.env.SEED ?? DEFAULT_SEED));
 const between = (lo, hi) => lo + rand() * (hi - lo);
 const pick = (list) => list[Math.floor(rand() * list.length)];
@@ -464,41 +478,175 @@ function clearOfUiPanel(rect) {
 }
 
 /**
- * セルがパネルの縁から「ほんの少しだけ」覗いていないか。
+ * メインメニュー（ホーム）の遮蔽物。倍率1のDOMから実測した値。
+ *
+ * `UI_KEEPOUT` はクリスタル用に「全ページの和 + 落ち影の余裕」を取った
+ * 広めの矩形なので、セルの見え方を判定する用途には使えない。ホームでは
+ * パネル本体は y423 で終わり、言語トグルとの間（423〜437）と、トグルの
+ * 左右は背景が見えている。この差を無視して UI_KEEPOUT で「隠れている」と
+ * 判定すると、実際には数pxだけ覗いているセルを通してしまう。
+ *
+ * 判定はホームに対してだけ行う（指定）。
+ */
+const HOME_OCCLUDERS = [
+  { x0: 35, x1: 355, y0: 120, y1: 423 }, // .panel
+  { x0: 134, x1: 256, y0: 437, y1: 488 }, // .languageToggle
+];
+
+const overlap1d = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+
+/** ホームで実際に見えている不透明部分の面積（画面内、かつ遮蔽物の外）。 */
+function homeVisibleArea(x0, y0, x1, y1) {
+  const onScreen = overlap1d(x0, x1, 0, WORLD_WIDTH) * overlap1d(y0, y1, 0, WORLD_HEIGHT);
+  let hidden = 0;
+  for (const o of HOME_OCCLUDERS) {
+    hidden += overlap1d(x0, x1, o.x0, o.x1) * overlap1d(y0, y1, o.y0, o.y1);
+  }
+  return Math.max(0, onScreen - hidden);
+}
+
+/**
+ * 見えている領域に収まる最大の矩形の「短辺」を返す。
+ *
+ * 見えている領域 = 不透明部分 ∩ 画面 − 遮蔽物。遮蔽物が2つあるので
+ * この領域はL字やコの字になり、単純な帯の計算では測れない。実際、
+ * 言語トグルを無視して「パネルの下に66pxの帯がある」と判定した配置が、
+ * トグルに分断されて 14px・38px・23px の細切れになっていた（実測）。
+ *
+ * 遮蔽物の辺でグリッドに切り、遮蔽されていないセルだけから成る矩形を
+ * 全通り試して最大の短辺を求める。グリッドはたかだか 4x4 程度なので
+ * 総当たりで足りる。
+ */
+function largestVisibleSide(x0, y0, x1, y1) {
+  const vx0 = Math.max(x0, 0);
+  const vx1 = Math.min(x1, WORLD_WIDTH);
+  const vy0 = Math.max(y0, 0);
+  const vy1 = Math.min(y1, WORLD_HEIGHT);
+  if (vx1 <= vx0 || vy1 <= vy0) return 0;
+
+  const xs = new Set([vx0, vx1]);
+  const ys = new Set([vy0, vy1]);
+  for (const o of HOME_OCCLUDERS) {
+    for (const v of [o.x0, o.x1]) if (v > vx0 && v < vx1) xs.add(v);
+    for (const v of [o.y0, o.y1]) if (v > vy0 && v < vy1) ys.add(v);
+  }
+  const xa = [...xs].sort((a, b) => a - b);
+  const ya = [...ys].sort((a, b) => a - b);
+
+  const free = [];
+  for (let r = 0; r + 1 < ya.length; r += 1) {
+    const row = [];
+    for (let c = 0; c + 1 < xa.length; c += 1) {
+      const mx = (xa[c] + xa[c + 1]) / 2;
+      const my = (ya[r] + ya[r + 1]) / 2;
+      const hidden = HOME_OCCLUDERS.some(
+        (o) => mx > o.x0 && mx < o.x1 && my > o.y0 && my < o.y1,
+      );
+      row.push(hidden ? 0 : 1);
+    }
+    free.push(row);
+  }
+
+  let best = 0;
+  for (let r0 = 0; r0 < free.length; r0 += 1) {
+    for (let r1 = r0; r1 < free.length; r1 += 1) {
+      const h = ya[r1 + 1] - ya[r0];
+      let runWidth = 0;
+      for (let c = 0; c < free[0].length; c += 1) {
+        let openColumn = true;
+        for (let r = r0; r <= r1; r += 1) if (!free[r][c]) openColumn = false;
+        if (!openColumn) {
+          runWidth = 0;
+          continue;
+        }
+        runWidth += xa[c + 1] - xa[c];
+        best = Math.max(best, Math.min(runWidth, h));
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * セルがメニューパネルの縁から「ほんの少しだけ」覗いていないか。
  *
  * セルはパネルに重なってよい規則（クリスタルと違い clearOfUiPanel は適用しない）
- * だが、重なりがちょうど浅いと、パネルの角からわずかに角だけ覗く見え方になり、
- * ノイズにしか見えない（指摘: ホーム画面でパネル縁からわずかに覗く断片）。
+ * だが、重なりが浅いと縁から細い帯だけが覗き、ノイズにしか見えない（指摘）。
  *
- * 最初は面積比（見えている面積 / 不透明部分の面積）で判定していたが、
- * 大きい形状（例: 144x140）だと面積比では数%でも実ピクセルでは十分読める
- * 大きさになり、見逃してしまうケースが実測で見つかった。UI_KEEPOUT は
- * クリスタル用に落ち影ぶんの余裕を持たせた広めの値なので、この余裕の内側
- * ぎりぎりで止まった形状は「ほぼ隠れている」と面積比では判定されるが、
- * 実際のパネル本体の縁からは十分はみ出して見える。
+ * 面積比で判定すると、大きい形状ほど同じ「細さ」でも比率が上がって判定が
+ * ぶれる。見たいのは細さそのものなので、見えている領域に収まる最大の矩形の
+ * 短辺が、読める大きさ（MIN_ONSCREEN）に届いていることを要求する。
  *
- * そのため判定は「面積比」ではなく「keepoutの外に何px出ているか」で行う。
- * まったく重ならない、または keepout に完全に収まっている（はみ出しゼロ）
- * ならOK。はみ出しがあるなら、読めるモチーフの最小サイズ（MIN_ONSCREEN）
- * 以上はみ出していることを要求する。中途半端な数〜十数pxのはみ出しだけを弾く。
+ *   - 完全に隠れている（可視面積0）→ OK（見えないので破綻しない）
+ *   - それ以外 → 見えている塊が MIN_ONSCREEN 角の正方形を含むこと
  */
-function noPanelSliver(rect) {
-  const x0 = rect.x + rect.ox;
+/**
+ * 見え方の判定に使う「実際に画面へ出る位置」の不透明矩形。
+ *
+ * `settleToward` は x をタイル座標のまま探索し、採用が決まってから
+ * [0, TILE_WIDTH) へ正規化する。正規化前の x で見え方を判定すると、
+ * 判定時は画面外だったものが正規化で画面内へ移動し、覗きになって
+ * すり抜ける（実測: x=-373 で「完全に隠れている」と判定 → 正規化後 x=17 で
+ * パネル左に 14px の細い覗きになっていた）。
+ *
+ * 正規化したうえで、トーラスの複製のうち最も画面に出るものを返す。
+ * `dropSliverCopies` が残すのも可視面積が最大の複製なので、判定と実際に
+ * 描かれるものが一致する。
+ */
+function screenRectOf(rect) {
+  const nx = ((rect.x % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH;
   const y0 = rect.y + rect.oy;
-  const x1 = x0 + rect.ow;
   const y1 = y0 + rect.oh;
-  const overlapsKeepout =
-    x0 < UI_KEEPOUT.x1 && x1 > UI_KEEPOUT.x0 && y0 < UI_KEEPOUT.y1 && y1 > UI_KEEPOUT.y0;
-  if (!overlapsKeepout) return true;
+  let best = null;
+  let bestArea = -1;
+  for (const shift of [-TILE_WIDTH, 0, TILE_WIDTH]) {
+    const x0 = nx + rect.ox + shift;
+    const x1 = x0 + rect.ow;
+    const area = overlap1d(x0, x1, 0, WORLD_WIDTH) * overlap1d(y0, y1, 0, WORLD_HEIGHT);
+    if (area > bestArea) {
+      bestArea = area;
+      best = { x0, y0, x1, y1 };
+    }
+  }
+  return best;
+}
 
-  const protrusions = [
-    UI_KEEPOUT.x0 - x0,
-    x1 - UI_KEEPOUT.x1,
-    UI_KEEPOUT.y0 - y0,
-    y1 - UI_KEEPOUT.y1,
-  ].filter((v) => v > 0);
-  if (protrusions.length === 0) return true;
-  return Math.max(...protrusions) >= MIN_ONSCREEN;
+function noPanelSliver(rect) {
+  const { x0, y0, x1, y1 } = screenRectOf(rect);
+  if (homeVisibleArea(x0, y0, x1, y1) <= 0) return true;
+  return largestVisibleSide(x0, y0, x1, y1) >= MIN_ONSCREEN;
+}
+
+/**
+ * 別のモチーフと「横一列」に並んでいないか（指摘: 要素が真横に並ぶ）。
+ *
+ * ホームのパネルは幅320・高さ303あり、キャンバス390x670の中央を占める。
+ * つまりセルが読める大きさで見えるのは上下の帯だけで、放っておくと
+ * 同じ帯に入った2〜3個が同じ高さに揃い、画面を横切る一本の線に見える。
+ *
+ * 見えているモチーフ同士だけを対象に、横に離れている（重なっていない）なら
+ * 不透明部分の中心Yを ROW_MIN_OFFSET 以上ずらすことを要求する。
+ * 隠れているものは線を作らないので対象外。x が重なっている縦の並びは
+ * 「積み上がった島」に見えるので、これも対象外。
+ */
+const ROW_MIN_OFFSET = 40;
+
+function notRowAligned(rect) {
+  const me = screenRectOf(rect);
+  if (homeVisibleArea(me.x0, me.y0, me.x1, me.y1) <= 0) return true;
+  const cy = (me.y0 + me.y1) / 2;
+
+  for (const other of placed) {
+    const it = screenRectOf(other);
+    if (homeVisibleArea(it.x0, it.y0, it.x1, it.y1) <= 0) continue;
+
+    const ocy = (it.y0 + it.y1) / 2;
+    if (Math.abs(cy - ocy) >= ROW_MIN_OFFSET) continue;
+    // x が重なっていれば縦に積まれた見え方なので許容する。
+    if (overlap1d(me.x0, me.x1, it.x0, it.x1) > 0) continue;
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -593,6 +741,7 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
       // セルはパネルに重なってよいが、縁からわずかに覗くだけの状態は避ける
       // （noPanelSliver のコメント参照）。
       if (CANVAS_MODE && !isCrystal && !noPanelSliver(rect)) continue;
+      if (CANVAS_MODE && !notRowAligned(rect)) continue;
       // 画面に破片しか映らない位置は最初から採らない。ここで弾いておけば
       // fillGaps が代わりの位置を探すので、密度を落とさずにノイズだけ減る。
       if (CANVAS_MODE && !hasReadableCopy(rect)) continue;
@@ -894,6 +1043,7 @@ async function reserveVisibleCell(prefix, shapes = RESERVED_CELL_SHAPES, { requi
         y: Math.round(between(0, WORLD_HEIGHT - size.h)),
       };
       if (!noPanelSliver(rect)) continue;
+      if (!notRowAligned(rect)) continue;
       if (wantVisible) {
         const ratio = visibleArea(rect) / (rect.ow * rect.oh);
         if (ratio < VISIBLE_MIN_RATIO) continue;
@@ -941,12 +1091,12 @@ async function reserveBlueCell() {
 function expandTiles(tileItems) {
   const out = [];
   for (let k = -1; k <= TILE_REPEATS; k += 1) {
-    for (const p of tileItems) {
+    for (const [srcIndex, p] of tileItems.entries()) {
       const x = p.x + k * TILE_WIDTH;
       const inside = x < WORLD_WIDTH && x + p.w > 0;
       const isInteriorTile = k >= 0 && k < TILE_REPEATS;
       if (!isInteriorTile && !inside) continue;
-      out.push({ ...p, x });
+      out.push({ ...p, x, srcIndex });
     }
   }
   return out;
@@ -960,11 +1110,27 @@ function expandTiles(tileItems) {
  * 残るので、密度を落とさずにノイズだけ消える。
  * `hasReadableCopy` は「1枚でも読めれば配置を採用する」判定なので、
  * 残った破片はここで初めて取り除かれる。
+ *
+ * さらに CANVAS_MODE では、両方の複製が「読める」大きさで残った場合に
+ * **片方だけを残す**。タイリングしない一枚絵なので、同じ絵が左右の端に
+ * 1つずつ出ると、同じ高さに同じモチーフが2つ並んだ横一線に見えてしまう
+ * （指摘の一因）。可視面積が大きい側を実体として残す。
  */
 function dropSliverCopies(items) {
-  const kept = items.filter((p) => isReadableCopy(p, 0));
+  const readable = items.filter((p) => isReadableCopy(p, 0));
+
+  const best = new Map();
+  for (const p of readable) {
+    const area = onScreenExtent(p, 0).vw * onScreenExtent(p, 0).vh;
+    const prev = best.get(p.srcIndex);
+    if (!prev || area > prev.area) best.set(p.srcIndex, { item: p, area });
+  }
+  const kept = [...best.values()].map((v) => v.item);
+
   const dropped = items.length - kept.length;
-  if (dropped > 0) console.log(`dropped slivers: ${dropped} (< ${MIN_ONSCREEN}px on screen)`);
+  if (dropped > 0) {
+    console.log(`dropped copies: ${dropped} (破片 or 端の重複)`);
+  }
   return kept;
 }
 
