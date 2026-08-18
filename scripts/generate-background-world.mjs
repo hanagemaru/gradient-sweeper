@@ -12,10 +12,24 @@
  *   - セル同士・セルとクリスタルは重ねない（棄却サンプリングで最小離隔を確保）。
  *
  * 確認用画像（全景と各画面比率の切り取り）は REVIEW_DIR へ出力する。リポジトリには含めない。
+ * 確認用画像にはUIパネルが写らないので、覗きと横並びは実画面で見ること。
+ *
+ * **手順・規則・シードの選び直し方は docs/technical/BACKGROUND-WORLD.md にまとまっている。**
+ * 見え方の判定に関わる定数と関数は `background-world-rules.mjs` にあり、
+ * 検証スクリプト `check-background-world.mjs` と共有している。
+ * 規則をこちらだけに書くと検証が素通りするので、必ず rules 側へ置くこと。
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  MIN_ONSCREEN,
+  isPanelSliver,
+  looksLikeRow,
+  screenRectOf,
+} from "./background-world-rules.mjs";
 
 const CRYSTAL_BASE = "/assets/frostbound/crystals-v2";
 const AUTOTILE_BASE = "/assets/frostbound/cell-autotile-v2";
@@ -24,7 +38,7 @@ const REVIEW_DIR =
   process.env.REVIEW_DIR ?? "/tmp/gradient-sweeper-background-review";
 
 /**
- * 固定キャンバス方式（390x844を1枚だけ描く）。これが現在の本番の方式。
+ * 固定キャンバス方式（390x670を1枚だけ描く）。これが現在の本番の方式。
  *
  * ワールド=キャンバスなのでタイリングも複数ビューポート対応も不要になり、
  * UI_KEEPOUT・CRYSTAL_SLOTS も単一の実測値だけで足りる。
@@ -36,8 +50,19 @@ const REVIEW_DIR =
 const CANVAS_MODE = process.env.CANVAS_MODE !== "0";
 
 // デスクトップまでカメラで覆えるサイズ。1920x1080 / 2560x1440 いずれも内側に収まる。
-const WORLD_WIDTH = CANVAS_MODE ? 390 : 2880;
-const WORLD_HEIGHT = CANVAS_MODE ? 844 : 1620;
+const WORLD_WIDTH = CANVAS_MODE ? CANVAS_WIDTH : 2880;
+/*
+ * キャンバス高さ（CANVAS_HEIGHT は background-world-rules.mjs 側で定義）。
+ * `src/components/ui/pixel-ui.module.css` の `.scene { height }` と
+ * 必ず一致させること（ここがワールドの寸法、あちらが表示枠）。
+ *
+ * 当初は 844（iPhone 12〜14 の画面スペック）だったが、ブラウザは上下のUIで
+ * 100〜190 CSS px 持っていくため実機に 844 の高さは存在せず、常に高さ基準で
+ * 縮小されて左右に黒帯が出ていた。実機の svh 比（iOS Safari が 1.70〜1.75 に密集）
+ * に合わせて 390 * 1.72 ≒ 670 に詰めた。根拠の詳細は pixel-ui.module.css の
+ * 冒頭コメントと docs/tasks/I-canvas-fit.md にある。
+ */
+const WORLD_HEIGHT = CANVAS_MODE ? CANVAS_HEIGHT : 1620;
 
 /**
  * 横方向のタイリング回数。1 なら繰り返しなしの一点物。
@@ -88,14 +113,24 @@ const MIN_GAP = 15;
 /**
  * CANVAS_MODE のキープアウト。
  *
- * 固定キャンバス(390x844)では画面サイズが1つしかないので、実測も1回で済む。
- * 390x844(スケール1)で実測した `.stack`（パネル＋言語トグル）は
- * x[35,355] y[120,488]。パネルの落ち影と余裕を足して10pxずつ広げる。
+ * 固定キャンバス(390x670)では画面サイズが1つしかないので、実測も1回で済む。
+ * ただし**ページごとにパネルの高さが違う**。倍率1（ビューポート 390x670）で
+ * 実測した `.stack`（パネル＋言語トグル）の下端は:
  *
- * y0=120 は `canvas.module.css` の `.content { padding-top: 120px }` と直結。
- * レイアウトを変えたらここも取り直すこと。
+ *   home     [120,488]   （パネル 120-423 + 言語トグル 437-488）
+ *   ranking  [120,511]
+ *   ta       [120,514]
+ *   result   [120,626]   ← 最も高い
+ *
+ * y1 は result を除く最大（ta の 514）に、落ち影と余裕の 10px を足した 524。
+ * result だけ別扱いにしているのは、`CANVAS_BOTTOM_BANDS` のコメントにある
+ * 「完全に見える or 完全にパネルの裏」を成立させるため（下側の帯は
+ * result のパネルの裏に完全に収まるように取ってある）。
+ *
+ * y0=120 は `pixel-ui.module.css` の `.content { padding-top: 120px }` と直結。
+ * レイアウトを変えたらここも実測を取り直すこと。
  */
-const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 110, y1: 498 };
+const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 110, y1: 524 };
 
 const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
@@ -142,7 +177,13 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  *
  * 帯は2つ:
  *   上 y[4,102]   … キープアウト上端 110 の上。98px しかないので小型のみ。
- *   下 y[504,840] … キープアウト下端 498 の下。336px。
+ *   下 y[524,626] … キープアウト下端 524 の下、result のパネル下端 626 の上。102px。
+ *
+ * 上の帯はキープアウト上端（110）基準なのでキャンバス高さを変えても動かない。
+ * 下の帯はページごとのパネル下端に挟まれた「クリーンゾーン」なので、
+ * キャンバス高さや `.content` の padding を変えたら必ず実測を取り直すこと。
+ * 844 のときの下帯は y[504,840] の 336px で、両方のクリスタルを段に分ける
+ * 余裕があった。670 では 102px しかない（下記 CANVAS_BOTTOM_BANDS 参照）。
  *
  * パネルの上に置くのは一番小さい accent-small だけ（指定）。
  * 残り2つは下の帯へ回す。
@@ -161,30 +202,62 @@ const CANVAS_CRYSTAL_SLOTS = [
 ];
 
 /**
- * 下の帯に入る2つの段。
+ * 下の帯に入る2つのクリスタルの Y。
  *
- * 2つを同じ高さに置くと横一列に並んで見えて不自然、という指摘への対応。
- * 下の帯（不透明 y[504,840]）を
- *   上段 y[504,652] / 下段 y[696,840]
- * に割り、間に 44px の空白を強制する。これで両者の高さは必ずずれる。
+ * 満たすべき条件が2つある。
  *
- * 値は矩形の Y。不透明部分が段に収まるよう oy を引いてある。
- *   cluster-medium 不透明 y = Y+6 .. Y+90  → 上段 Y in [498,562] / 下段 Y in [690,750]
- *   cluster-wide   不透明 y = Y+35 .. Y+80 → 上段 Y in [469,572] / 下段 Y in [661,760]
+ * 1. **どのページでも「完全に見える」か「完全にパネルの裏」のどちらかになる。**
+ *    中途半端に半分だけパネルへ潜り込む見え方は不可（既出の指摘）。
+ *    パネル下端はページごとに 488 / 511 / 514 / 626（CANVAS_UI_KEEPOUT の
+ *    コメント参照）なので、不透明部分を **y[524,626] に収める**と
+ *    home/ranking/ta では全部見え、result では全部パネルの裏に入る。
+ *    帯の上端 524 はキープアウト下端、下端 626 は result のパネル下端。
+ *
+ * 2. **2つを同じ高さに置くと横一列に並んで見えて不自然**（既出の指摘）。
+ *    帯が 336px あった 844 のときは上下2段に割って 44px の空白を強制できたが、
+ *    670 では帯が 102px しかなく、不透明部分の合計 129px（84 + 45）すら入らない。
+ *    段に割るのはやめ、**不透明部分の中心をできるだけずらす**ことで代替する。
+ *    横方向は帯幅 370px を使って `fits()` の MIN_GAP が離してくれるので、
+ *    「中心がずれた2つが横に離れて置かれる」絵になる。
+ *
+ * 値は矩形の Y。不透明部分が帯に収まるよう oy を引いてある。
+ *   cluster-medium 不透明 y = Y+6 .. Y+90（84px）→ 中心 Y+48
+ *   cluster-wide   不透明 y = Y+35 .. Y+80（45px）→ 中心 Y+57.5
+ *
+ * 帯 y[524,626] に収める制約から、取りうる中心の範囲は
+ *   medium 中心 ∈ [566, 584]   (Y ∈ [518, 536])
+ *   wide   中心 ∈ [546.5, 603.5] (Y ∈ [489, 546])
+ * となり、**中心のずれは原理的に 37.5px が上限**。セル同士に課している
+ * ROW_MIN_OFFSET(40) はこの帯では達成できないので、この2つだけは
+ * 上限いっぱいまで離すことで代える（`notRowAligned` は CANVAS_MODE の
+ * クリスタルには掛からない。予約枠でしか置かれないため）。
+ * シルエットも 84px の縦長と 45px の平たい塊で大きく違うので、
+ * 中心が 33px 離れていれば横一線には見えない。
+ *
+ *   medium が上: medium Y in [518,520] → 中心 [566,568]
+ *               wide   Y in [543,546] → 中心 [600.5,603.5]  ずれ >= 32.5
+ *   wide が上:   wide   Y in [489,492] → 中心 [546.5,549.5]
+ *               medium Y in [534,536] → 中心 [582,584]      ずれ >= 32.5
  */
 const CANVAS_BOTTOM_BANDS = {
-  "cluster-medium": { upper: [498, 562], lower: [690, 750] },
-  "cluster-wide": { upper: [469, 572], lower: [661, 760] },
+  "cluster-medium": { upper: [518, 520], lower: [534, 536] },
+  "cluster-wide": { upper: [489, 492], lower: [543, 546] },
 };
 
-/** どちらが上段に入るかはシードごとに入れ替える（2案で同じ絵にならないように）。 */
+/**
+ * どちらを上に置くかはシードごとに入れ替える（2案で同じ絵にならないように）。
+ *
+ * `upper` / `lower` は「帯の中で上に来るのはどちらか」で選ぶ枠であって、
+ * 段そのものではない（上記のとおり段には割れない）。medium が上のときは
+ * medium が `upper`、wide が `lower` の枠を使う。
+ */
 function resolveCanvasBottomBands(slots) {
   const mediumOnTop = rand() < 0.5;
   return slots.map((slot) => {
     const bands = CANVAS_BOTTOM_BANDS[slot.name];
     if (!bands) return slot;
-    const onTop = slot.name === "cluster-medium" ? mediumOnTop : !mediumOnTop;
-    const [y0, y1] = onTop ? bands.upper : bands.lower;
+    const useUpper = slot.name === "cluster-medium" ? mediumOnTop : !mediumOnTop;
+    const [y0, y1] = useUpper ? bands.upper : bands.lower;
     return { ...slot, y0, y1 };
   });
 }
@@ -252,15 +325,11 @@ const ALL_PALETTE_WEIGHTS = [
 /**
  * CANVAS_MODE の色の決め方。
  *
- * 要件は「赤ベースを1つ、青ベースを1つ以上、紫は使わない」。
- * 重み付き抽選のままだと個数を保証できない（赤が0個や2個になる）ので、
- *   1. 抽選では紫も赤も引かない（covered と open-blue だけ）
- *   2. 生成し終わってから open-blue のうち1つだけを open-red に塗り替える
- * という2段構えにして、個数を確定させる。
- *
- * 塗り替えが安全なのは、同じ形状なら open-blue と open-red の PNG 寸法が
- * 完全に一致するため（14形状すべてで確認済み）。covered だけは 36x38 で
- * 寸法が違うので、この塗り替えの対象にしない。
+ * 要件は「未開封(covered)が主役、赤ベースが見える位置に1つ、青ベースが1つ以上、
+ * 紫は使わない」。重み付き抽選だけでは個数も可視性も保証できない
+ * （赤が0個や2個になる、covered がパネル裏に隠れて実質0個に見える、等）ので、
+ * 抽選では紫を引かず covered / open-blue だけにしたうえで、covered と赤は
+ * `reserveVisibleCell` で見える位置へ先に1個ずつ確保する（下記）。
  * 紫を抜いたぶんの重みは青に足す。
  */
 const CANVAS_PALETTE_WEIGHTS = [
@@ -283,10 +352,14 @@ function mulberry32(seed) {
 }
 
 /**
- * 既定シードは、本番で採用した配置（比較5案のうちシード5）を再現する値。
+ * 既定シードは、本番で採用した配置を再現する値。
  * 素で再実行すればコミット済みの `src/lib/background-world.ts` と一致する。
+ *
+ * CANVAS_MODE の 6002 は、覗き・横並び・クリスタル欠けの制約を入れたあとに
+ * 30シードを比較して選んだもの。制約を変えると同じシードでも別の絵になるので、
+ * 変更したら選び直すこと（選び方は docs/technical/BACKGROUND-WORLD.md）。
  */
-const DEFAULT_SEED = CANVAS_MODE ? 20265786 : 20260815;
+const DEFAULT_SEED = CANVAS_MODE ? 6002 : 20260815;
 const rand = mulberry32(Number(process.env.SEED ?? DEFAULT_SEED));
 const between = (lo, hi) => lo + rand() * (hi - lo);
 const pick = (list) => list[Math.floor(rand() * list.length)];
@@ -372,8 +445,15 @@ function fits(rect, margin) {
 /**
  * 縦方向にワールドへ掛かっていれば採用。
  * x はトーラスなのでどの値でも有効（書き出し時に横へ複製される）。
+ *
+ * CANVAS_MODE では上下端は横端と違って「回り込む」先が無い、ただの
+ * キャンバスの外なので、はみ出しは折り返しではなく素の切れ端になる
+ * （指摘: 画面上端でクリスタル／セルが物理的に切れて見える）。
+ * よって CANVAS_MODE だけは「掛かっている」ではなく「完全に収まっている」
+ * を採用条件にする。
  */
 function touchesWorld(rect) {
+  if (CANVAS_MODE) return rect.y >= 0 && rect.y + rect.h <= WORLD_HEIGHT;
   return rect.y < WORLD_HEIGHT && rect.y + rect.h > 0;
 }
 
@@ -413,16 +493,28 @@ function clearOfUiPanel(rect) {
 }
 
 /**
- * 画面にほんの少しだけ入っているセルはノイズに見える、という指摘への対応。
- *
- * 「モチーフとして読める最小の大きさ」をゲームの1セル分（36px）とする。
- * 実測（前回の3シード）では、意味のあるモチーフの可視幅・可視高さは 53px 以上、
- * ノイズに見えたものは 28px 以下と、この境界できれいに分かれていた。
- *
- * 端で切れていないものは、小さくてもノイズではないので対象外
+ * セルがメニューパネルの縁から「ほんの少しだけ」覗いていないか。
+ * 規則の本体と根拠は `background-world-rules.mjs` にある。
+ */
+function noPanelSliver(rect) {
+  return !isPanelSliver(screenRectOf(rect));
+}
+
+/**
+ * 別のモチーフと「横一列」に並んでいないか（指摘: 要素が真横に並ぶ）。
+ * 規則の本体と根拠は `background-world-rules.mjs` にある。
+ */
+function notRowAligned(rect) {
+  const me = screenRectOf(rect);
+  return !placed.some((other) => looksLikeRow(me, screenRectOf(other)));
+}
+
+/*
+ * 画面にほんの少しだけ入っているセルはノイズに見える、という指摘への対応で
+ * 使う「読める最小の大きさ」は MIN_ONSCREEN（background-world-rules.mjs）。
+ * 端で切れていないものは小さくてもノイズではないので対象外にしている
  * （クリスタルの accent-small は不透明部分が 34x33 しかない）。
  */
-const MIN_ONSCREEN = 36;
 
 /** 画面に写る不透明部分の幅と高さ。x はトーラスなので複製位置ごとに測る。 */
 function onScreenExtent(rect, shift) {
@@ -501,6 +593,10 @@ function settleToward(base, name, size, cx, cy, attempts, maxReach, gapLo, gapHi
       // 内側にもっと良い位置があるかもしれないので、探索は続ける。
       if (!farFromSameAsset(rect)) continue;
       if (isCrystal && !clearOfUiPanel(rect)) continue;
+      // セルはパネルに重なってよいが、縁からわずかに覗くだけの状態は避ける
+      // （noPanelSliver のコメント参照）。
+      if (CANVAS_MODE && !isCrystal && !noPanelSliver(rect)) continue;
+      if (CANVAS_MODE && !notRowAligned(rect)) continue;
       // 画面に破片しか映らない位置は最初から採らない。ここで弾いておけば
       // fillGaps が代わりの位置を探すので、密度を落とさずにノイズだけ減る。
       if (CANVAS_MODE && !hasReadableCopy(rect)) continue;
@@ -653,8 +749,14 @@ async function reserveCrystalSlots() {
 
 async function build() {
   await reserveCrystalSlots();
-  // 赤セルもクリスタルと同じく先に押さえる（見える位置が構造的に少ないため）。
-  if (CANVAS_MODE) await reserveRedCell();
+  if (CANVAS_MODE) {
+    // 未開封セル（covered）と赤セルは、クリスタルと同じく見える位置を先に
+    // 押さえる（帯が狭く、あとから探しても取れないため）。青は可視性を
+    // 問わず存在だけ保証する（reserveBlueCell のコメント参照）。
+    await reserveRedCell();
+    await reserveVisibleCell("covered", COVERED_RESERVE_SHAPES);
+    await reserveBlueCell();
+  }
 
   // 区画はスマホのビューポート（〜390x844）より小さめに取り、
   // どの位置を切り取っても複数のモチーフが入るようにする。
@@ -712,20 +814,27 @@ async function build() {
 }
 
 /**
- * 赤セルを1つだけ、見える位置に先に確保する（CANVAS_MODE 専用）。
+ * 特定パレットのセルを1つだけ、見える位置に先に確保する（CANVAS_MODE 専用）。
  *
- * 「赤ベースを1つ」という要件は個数だけでなく、差し色として見えていることまで
- * 含む。ところがセルはパネルに重なってよい規則なので、普通に撒くと赤が
- * パネルの裏や画面外にほぼ隠れてしまう（実測: 生成後に1つ塗り替える方式だと
- * 3シードとも可視率 0〜26% だった）。空きが構造的に少ないのが原因なので、
- * クリスタルと同じく島を撒く前に場所を押さえる。
+ * 赤セルで最初に発見した問題: 個数だけ揃えても、セルはパネルに重なってよい
+ * 規則のせいで、普通に撒くとパネルの裏や画面外にほぼ隠れてしまう
+ * （実測: 生成後に1つ塗り替える方式だと3シードとも可視率 0〜26% だった）。
+ * 空きが構造的に少ないのが原因なので、クリスタルと同じく島を撒く前に
+ * 場所を押さえる。
+ *
+ * のちに covered（未開封セル）でも同じ問題を確認した。PALETTE_WEIGHTS の
+ * 重みは covered 62 / open-blue 38 で「雪原が主役」の意図だが、重みは
+ * 「置かれる個数」にしか効かず「見える位置に置かれるか」は別問題。実際、
+ * 既定シードでは covered が1個しか置かれず、しかもその1個がホーム画面の
+ * パネル裏にほぼ収まっていた＝ユーザーの目には未開封セルが一切見えない
+ * 状態になっていた。covered も赤と同じ理由でここに追加した。
  *
  * 押さえ方の条件:
  *   - 端で回り込まないこと。配置はトーラスなので右端をまたぐセルは左端にも
- *     出る。赤だと画面の左右に赤い破片が2つ見えて「赤は1つ」に反する。
+ *     出る。同じ色が画面の左右に2つ見えると「1つ」の想定に反する。
  *   - 可視面積が不透明部分の面積の VISIBLE_MIN_RATIO 以上あること。
- *   - 形状は小〜中型に限る。赤は差し色なので、いちばん大きい塊が赤になると
- *     画面の主役が入れ替わってしまう。
+ *   - 形状は小〜中型に限る。差し色（赤）はもちろん、主役の covered でも
+ *     いちばん大きい塊がこれ1個で占有すると他のモチーフの置き場が無くなる。
  *
  * 青は抽選（open-blue の重み38）に任せる。実測でどのシードも4〜5個出る。
  */
@@ -743,30 +852,88 @@ function visibleArea(p) {
   return Math.max(0, onScreen - behindPanel);
 }
 
-const RED_CELL_SHAPES = ["square", "wide", "tall", "l", "l-rotated"];
+const RESERVED_CELL_SHAPES = ["square", "wide", "tall", "l", "l-rotated"];
 
-async function reserveRedCell() {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
-    const name = `open-red-${pick(RED_CELL_SHAPES)}`;
-    const size = await assetSize(AUTOTILE_BASE, name);
-    if (size.w > WORLD_WIDTH) continue;
+/**
+ * covered 専用の縮小形状セット。
+ *
+ * 赤と covered を両方とも上下の帯（高さ102〜110px）に確保しようとすると、
+ * 既に確保済みのクリスタル3個と場所を取り合って失敗率が上がる。
+ * covered は l/l-rotated（192x192、キャンバス幅の半分）を候補から外す。
+ * 赤は元から動いていた組み合わせなので RESERVED_CELL_SHAPES のまま変えない。
+ */
+const COVERED_RESERVE_SHAPES = ["square", "wide", "tall"];
 
-    const rect = {
-      ...size,
-      base: AUTOTILE_BASE,
-      name,
-      x: Math.round(between(0, WORLD_WIDTH - size.w)),
-      y: Math.round(between(-size.h * 0.4, WORLD_HEIGHT - size.h * 0.6)),
-    };
-    if (visibleArea(rect) < size.ow * size.oh * VISIBLE_MIN_RATIO) continue;
-    if (!fits(rect, MIN_GAP)) continue;
+/**
+ * 帯（高さ102〜110px、幅390px）は crystal 3個 + 赤1個で既にかなり埋まっており、
+ * covered をそこへ「不透明部分の45%以上」で割り込ませようとすると、実測で
+ * 約半分のシードが確保に失敗する（既存アイテムと y 帯が重なり、x の空きも
+ * 128px 未満に断片化するため）。1回で失敗させず、条件を段階的に緩めて
+ * 再探索する。
+ *
+ * 「見える位置」を要求する場合（赤・covered）は探索を2段に分ける。
+ *   1st: 十分見えている（VISIBLE_MIN_RATIO 以上）位置を探す
+ *   2nd: 見つからなければ、noPanelSliver だけを満たす位置で妥協する
+ *        （見えなくてもいいが、中途半端な覗きにだけはしない）
+ * 可視性を要求しない場合（青）は 2nd から始める。
+ *
+ * どちらの段も noPanelSliver は必ず通すので、中途半端な覗きは絶対に出ない。
+ */
+async function reserveVisibleCell(prefix, shapes = RESERVED_CELL_SHAPES, { requireVisible = true } = {}) {
+  const passes = requireVisible ? [true, false] : [false];
 
-    placed.push(rect);
-    return rect;
+  for (const wantVisible of passes) {
+    for (let attempt = 0; attempt < 1200; attempt += 1) {
+      const name = `${prefix}-${pick(shapes)}`;
+      const size = await assetSize(AUTOTILE_BASE, name);
+      if (size.w > WORLD_WIDTH) continue;
+
+      const rect = {
+        ...size,
+        base: AUTOTILE_BASE,
+        name,
+        x: Math.round(between(0, WORLD_WIDTH - size.w)),
+        // y はキャンバス内に完全に収める（上下端でスプライトが物理的に
+        // 切れて見えるのを防ぐ。touchesWorld の CANVAS_MODE 分岐と同じ理由）。
+        y: Math.round(between(0, WORLD_HEIGHT - size.h)),
+      };
+      if (!noPanelSliver(rect)) continue;
+      if (!notRowAligned(rect)) continue;
+      if (wantVisible) {
+        const ratio = visibleArea(rect) / (rect.ow * rect.oh);
+        if (ratio < VISIBLE_MIN_RATIO) continue;
+      }
+      if (!fits(rect, MIN_GAP)) continue;
+
+      placed.push(rect);
+      return rect;
+    }
   }
 
-  console.log("WARNING: 赤セルを見える位置に確保できなかった");
+  console.log(`WARNING: ${prefix} セルの配置を確保できなかった`);
   return null;
+}
+
+async function reserveRedCell() {
+  return reserveVisibleCell("open-red");
+}
+
+/**
+ * 青ベースを最低1個、存在だけ保証する。
+ *
+ * 赤・covered と違って「見える位置」までは要求しない（もとの要件は
+ * 「青ベースを1つ以上」で可視性の言及が無い）。requireVisible: false は
+ * 2nd段（ほぼ隠れている位置）から探索するので、可視性は問わないが
+ * noPanelSliver は変わらず効くため、中途半端な覗きにはならない。
+ *
+ * これが要る理由: 赤とcoveredの確保が rand() を追加で消費するようになり、
+ * 以降の島・fillGapsで引かれる色の乱数列がシードごとにずれた結果、
+ * 抽選（covered 62 / open-blue 38）だけに任せていた「青が1つ以上」が
+ * 一部のシードで満たされなくなった（実測で確認済み）。可視性を問わない
+ * 低コストな保証を足すことで、この巻き添えを防ぐ。
+ */
+async function reserveBlueCell() {
+  return reserveVisibleCell("open-blue", RESERVED_CELL_SHAPES, { requireVisible: false });
 }
 
 /**
@@ -779,12 +946,12 @@ async function reserveRedCell() {
 function expandTiles(tileItems) {
   const out = [];
   for (let k = -1; k <= TILE_REPEATS; k += 1) {
-    for (const p of tileItems) {
+    for (const [srcIndex, p] of tileItems.entries()) {
       const x = p.x + k * TILE_WIDTH;
       const inside = x < WORLD_WIDTH && x + p.w > 0;
       const isInteriorTile = k >= 0 && k < TILE_REPEATS;
       if (!isInteriorTile && !inside) continue;
-      out.push({ ...p, x });
+      out.push({ ...p, x, srcIndex });
     }
   }
   return out;
@@ -798,11 +965,27 @@ function expandTiles(tileItems) {
  * 残るので、密度を落とさずにノイズだけ消える。
  * `hasReadableCopy` は「1枚でも読めれば配置を採用する」判定なので、
  * 残った破片はここで初めて取り除かれる。
+ *
+ * さらに CANVAS_MODE では、両方の複製が「読める」大きさで残った場合に
+ * **片方だけを残す**。タイリングしない一枚絵なので、同じ絵が左右の端に
+ * 1つずつ出ると、同じ高さに同じモチーフが2つ並んだ横一線に見えてしまう
+ * （指摘の一因）。可視面積が大きい側を実体として残す。
  */
 function dropSliverCopies(items) {
-  const kept = items.filter((p) => isReadableCopy(p, 0));
+  const readable = items.filter((p) => isReadableCopy(p, 0));
+
+  const best = new Map();
+  for (const p of readable) {
+    const area = onScreenExtent(p, 0).vw * onScreenExtent(p, 0).vh;
+    const prev = best.get(p.srcIndex);
+    if (!prev || area > prev.area) best.set(p.srcIndex, { item: p, area });
+  }
+  const kept = [...best.values()].map((v) => v.item);
+
   const dropped = items.length - kept.length;
-  if (dropped > 0) console.log(`dropped slivers: ${dropped} (< ${MIN_ONSCREEN}px on screen)`);
+  if (dropped > 0) {
+    console.log(`dropped copies: ${dropped} (破片 or 端の重複)`);
+  }
   return kept;
 }
 
