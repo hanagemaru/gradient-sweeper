@@ -374,8 +374,8 @@ ALTER TABLE scores ADD CONSTRAINT player_name_length CHECK (length(player_name) 
 - [x] ランキングDB本番化（Supabase設定）
 - [ ] ハブサイト（hanage.app）の構築
 - [ ] Service Workerの実装（オフライン対応）
-- [ ] Supabase の RLS 設定（手順は「Supabaseの設定 → RLS（Row Level Security）」に記載済み。本番プロジェクトで実行するだけ）
+- [x] Supabase の RLS 設定（手順は「Supabaseの設定 → RLS（Row Level Security）」に記載済み。本番プロジェクトで実行済み。2026-08-18、Supabase Security Advisorの指摘を受けて有効化）
 
 ---
 
-*最終更新: 2026-02-16*
+*最終更新: 2026-08-18*
