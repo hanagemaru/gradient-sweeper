@@ -48,6 +48,8 @@ export interface GameResultOverlayProps {
   timeMs: number;
   /** TAのみ使用 */
   penaltyMs: number;
+  /** スコア送信後に呼ばれる。`/game` はここでランキングへ切り替える。 */
+  onSubmitted?: () => void;
 }
 
 /**
@@ -70,10 +72,21 @@ export function GameResultOverlay({
   score,
   timeMs,
   penaltyMs,
+  onSubmitted,
 }: GameResultOverlayProps) {
   const { t } = useI18n();
   const { playerName, setPlayerName, handleSubmit, handleSkip, isNavigating } =
-    useResultSubmission({ mode, difficulty, level, misses, revives, score, timeMs, penaltyMs });
+    useResultSubmission({
+      mode,
+      difficulty,
+      level,
+      misses,
+      revives,
+      score,
+      timeMs,
+      penaltyMs,
+      onSubmitted,
+    });
 
   const finalTimeMs = timeMs + penaltyMs;
   const title = mode === "ta" && cleared ? t("cleared.title") : t("result.title");

@@ -28,10 +28,8 @@ export function RankingOverlay({ isOpen, onBack, ...panelProps }: RankingOverlay
   if (!isOpen) return null;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="RANKING">
-      <PixelScene width="wide" overlay>
-        <RankingPanel {...panelProps} onBack={onBack} />
-      </PixelScene>
-    </div>
+    <PixelScene width="wide" overlay label="RANKING">
+      <RankingPanel {...panelProps} onBack={onBack} />
+    </PixelScene>
   );
 }

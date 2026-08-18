@@ -18,10 +18,18 @@ export interface ResultSubmissionParams {
   timeMs: number;
   /** TAのみ使用 */
   penaltyMs: number;
+  /**
+   * スコア送信後の後始末。渡さない場合は従来どおり `/ranking` へ遷移する。
+   *
+   * `/game` はここでランキングをオーバーレイ表示するため、ページ遷移を
+   * させたくない。遷移するかどうかは呼び出し側の事情なので、このフックは
+   * 送信だけを担当して行き先の判断を外へ出している。
+   */
+  onSubmitted?: () => void;
 }
 
 /**
- * リザルト画面の「プレイヤー名入力 → スコア送信 → ランキングへ遷移」
+ * リザルト画面の「プレイヤー名入力 → スコア送信 → ランキングへ」
  * および「スキップ → ホームへ遷移」ロジック。
  *
  * `/result`（直接URLアクセス時のフルページ表示）と、`/game` 上に重ねる
@@ -37,6 +45,7 @@ export function useResultSubmission({
   score,
   timeMs,
   penaltyMs,
+  onSubmitted,
 }: ResultSubmissionParams) {
   const router = useRouter();
 
@@ -84,7 +93,14 @@ export function useResultSubmission({
       }).catch((error) => console.error("Failed to submit score:", error));
     }
 
+    // 二重送信の防止も兼ねているので、遷移しない場合でも立てておく。
     setIsNavigating(true);
+
+    if (onSubmitted) {
+      onSubmitted();
+      return;
+    }
+
     router.push(`/ranking?mode=${mode}${difficulty ? `&difficulty=${difficulty}` : ""}`);
   };
 

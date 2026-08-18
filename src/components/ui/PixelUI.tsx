@@ -40,6 +40,7 @@ export function PixelScene({
   languageToggle = false,
   width = "normal",
   overlay = false,
+  label,
 }: {
   children: ReactNode;
   languageToggle?: boolean;
@@ -53,6 +54,8 @@ export function PixelScene({
    * ホームの上に重ねたときとパネルの寸法・位置・拡大率が一致する。
    */
   overlay?: boolean;
+  /** overlay のときにダイアログへ付ける名前。 */
+  label?: string;
 }) {
   const { language } = useI18n();
 
@@ -62,7 +65,15 @@ export function PixelScene({
     // 背景と黒帯は動かない。
     // 高さ 670 の根拠は pixel-ui.module.css のコメントを参照（844 は実機ブラウザに
     // 存在しない高さだったので詰めた）。
-    <div className={cx(styles.stage, overlay && styles.stageOverlay)}>
+    // overlay は実質モーダルなので、幕そのものに dialog の役割を持たせる。
+    // ここを外側のラッパー div に付けると、中身が position:fixed のせいで
+    // 高さ 0 の要素に role が乗ってしまう。
+    <div
+      className={cx(styles.stage, overlay && styles.stageOverlay)}
+      role={overlay ? "dialog" : undefined}
+      aria-modal={overlay ? true : undefined}
+      aria-label={overlay ? label : undefined}
+    >
       <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
         {!overlay && <PixelBackdrop />}
         <div className={styles.scroll}>

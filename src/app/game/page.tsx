@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/Icon";
 import { MilestoneEffect } from "@/components/game/MilestoneEffect";
 import { GameResultOverlay } from "@/app/result/GameResultOverlay";
+import { RankingOverlay } from "@/app/ranking/RankingOverlay";
 import { GameMode, Difficulty, MAX_REVIVES_TA, GRID_SIZE, LEVEL_CLEAR_BONUS, PERFECT_BONUS_MULTIPLIER } from "@/types/game";
 import { showRewardedAd } from "@/lib/rewarded-provider";
 import { countFlags } from "@/lib/game-logic";
@@ -77,6 +78,10 @@ function GameContent() {
     timeMs: number;
     penaltyMs: number;
   } | null>(null);
+
+  // スコア登録が終わったら、リザルトの上にさらにランキングを重ねる。
+  // ここでも遷移しないので、盤面は最後までアンマウントされない。
+  const [showRanking, setShowRanking] = useState(false);
 
   // TAモード復活時のペナルティポップアップ表示
   const [showPenaltyPopup, setShowPenaltyPopup] = useState(false);
@@ -319,7 +324,7 @@ function GameContent() {
         {mode === "endless" && <MilestoneEffect score={state.score} />}
 
         <GameResultOverlay
-          isOpen={resultSnapshot !== null}
+          isOpen={resultSnapshot !== null && !showRanking}
           mode={mode}
           difficulty={difficulty ?? null}
           level={resultSnapshot?.level ?? 0}
@@ -329,6 +334,14 @@ function GameContent() {
           score={resultSnapshot?.score ?? 0}
           timeMs={resultSnapshot?.timeMs ?? 0}
           penaltyMs={resultSnapshot?.penaltyMs ?? 0}
+          onSubmitted={() => setShowRanking(true)}
+        />
+
+        <RankingOverlay
+          isOpen={showRanking}
+          initialMode={mode}
+          initialDifficulty={difficulty ?? undefined}
+          onBack={() => router.push("/")}
         />
       </section>
     </main>
