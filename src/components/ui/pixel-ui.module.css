@@ -58,6 +58,29 @@
   background: #000;
 }
 
+/*
+ * 背景なしオーバーレイ（PixelScene の overlay モード）。
+ *
+ * 黒い額の代わりにビューポート全面の暗幕を敷く。`/game` は PixelScene を
+ * 使っていない通常フローなのでキャンバスの外側にも盤面が広がる。暗幕を
+ * .scene ではなくここ（fixed inset:0）に置いているのはそのため。
+ * 濃度はリザルトのモーダル（.modalBackdrop）と同じ値に揃えてある。
+ */
+.stageOverlay {
+  z-index: 70;
+  background: rgba(6, 26, 55, 0.82);
+}
+
+/*
+ * 通常モードの .scene は背景ワールドの継ぎ目を隠すために単色で塗ってある。
+ * オーバーレイでは背後を見せたいので、その塗りだけ取り消す。
+ * カスタムプロパティとフォントは .scene に載ったままなので、パネルの
+ * 配色は通常モードと変わらない。
+ */
+.stageOverlay .scene {
+  background: transparent;
+}
+
 .scene {
   --block-font: "VT323", ui-monospace, monospace;
   --jp-font: "MaruMonica", sans-serif;
@@ -178,6 +201,18 @@
    * ここを変えたら向こうの実測値も取り直して背景を再生成すること。
    */
   padding: 120px 16px 42px;
+}
+
+/*
+ * オーバーレイでは背景ワールドを描かないので、上端の 120px は
+ * クリスタルの置き場ではなくただの空白になってしまう。
+ * モーダルらしく上下中央へ寄せ、余白を詰める。
+ * 中身がキャンバス高さを超えると .content 自体が伸びるため、
+ * align-items: center でも上が切れることはない（スクロールは .scroll が持つ）。
+ */
+.contentOverlay {
+  align-items: center;
+  padding: 24px 16px;
 }
 
 .stack {
