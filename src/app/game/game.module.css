@@ -197,14 +197,19 @@
 
 /*
  * 操作ボタンはパネルの中ではなく背景の上に単独で置かれる。
- * ホームの言語トグルと同じ落ち影を付けて、背景から浮かせる。
+ *
+ * このアプリで背景の上に直接置かれる部品はホームの言語トグルとこれだけなので、
+ * 色・落ち影・outline を言語トグル（pixel-ui.module.css の .languageToggle）に揃える。
+ * 既定の .button_primary はパネル（--navy-900）の上に載る前提の色で、薄い水色の
+ * 背景に直接置くとコントラストが強すぎて重く見えるため、ここで打ち消している。
+ *
  * 幅は左右のクリスタル（x104 まで / x271 から）に触れない範囲でいちばん広い値。
  */
 .controls button {
   min-width: 140px;
-  box-shadow:
-    inset 0 -4px 0 rgba(4, 15, 32, 0.28),
-    4px 7px 0 rgba(20, 45, 90, 0.18);
+  outline-offset: -3px;
+  background: var(--navy-900);
+  box-shadow: var(--on-scene-shadow);
 }
 
 /*

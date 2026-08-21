@@ -61,11 +61,11 @@ export function GameOverModal({
             </PixelButton>
           )}
           {mode === "ta" ? (
-            <PixelButton onClick={onGoHome} variant="secondary" size="lg" block leading="◀">
+            <PixelButton onClick={onGoHome} variant="ghost" size="lg" block leading="◀">
               {t("gameOver.backToHome")}
             </PixelButton>
           ) : (
-            <PixelButton onClick={onGiveUp} variant="secondary" size="lg" block leading="◀">
+            <PixelButton onClick={onGiveUp} variant="ghost" size="lg" block leading="◀">
               {t("gameOver.giveUp")}
             </PixelButton>
           )}
