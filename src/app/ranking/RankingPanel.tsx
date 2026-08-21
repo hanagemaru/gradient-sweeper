@@ -58,7 +58,11 @@ export function RankingPanel({
         const params = new URLSearchParams({ mode });
         if (mode === "ta") params.set("difficulty", difficulty);
 
-        const response = await fetch(`/api/leaderboard?${params.toString()}`);
+        // スコア登録の直後に開かれる経路があるので、キャッシュされた
+        // 一覧を掴まないようにする。
+        const response = await fetch(`/api/leaderboard?${params.toString()}`, {
+          cache: "no-store",
+        });
         const json = await response.json();
         if (cancelled) return;
 

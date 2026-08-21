@@ -57,44 +57,51 @@ export function useResultSubmission({
     if (savedName) setPlayerName(savedName);
   }, []);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isNavigating) return;
 
     const trimmedName = playerName.trim();
     if (trimmedName) localStorage.setItem(PLAYER_NAME_KEY, trimmedName);
 
-    if (mode === "endless") {
-      fetch("/api/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          endless_level: level,
-          miss_count: misses,
-          revive_count: revives,
-          player_name: trimmedName || undefined,
-          score,
-        }),
-      }).catch((error) => console.error("Failed to submit score:", error));
-    } else {
-      fetch("/api/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          difficulty,
-          time_ms: timeMs,
-          penalty_ms: penaltyMs,
-          miss_count: misses,
-          revive_count: revives,
-          player_name: trimmedName || undefined,
-        }),
-      }).catch((error) => console.error("Failed to submit score:", error));
-    }
+    const body =
+      mode === "endless"
+        ? {
+            mode,
+            endless_level: level,
+            miss_count: misses,
+            revive_count: revives,
+            player_name: trimmedName || undefined,
+            score,
+          }
+        : {
+            mode,
+            difficulty,
+            time_ms: timeMs,
+            penalty_ms: penaltyMs,
+            miss_count: misses,
+            revive_count: revives,
+            player_name: trimmedName || undefined,
+          };
 
     // 二重送信の防止も兼ねているので、遷移しない場合でも立てておく。
     setIsNavigating(true);
+
+    /*
+     * 送信の完了を待ってから次へ進む。
+     *
+     * ここを待たずに進めると、ランキング側の一覧取得が登録の書き込みを
+     * 追い越し、いま出したばかりのスコアが載らない。以前は次がページ遷移
+     * だったので、その読み込み時間が偶然この競合を隠していた。オーバーレイは
+     * 即座に開くぶん、待たないと必ず追い越す。
+     *
+     * 失敗しても先へは進める（記録できなかったことで操作を止めない）のは従来どおり。
+     */
+    await fetch("/api/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch((error) => console.error("Failed to submit score:", error));
 
     if (onSubmitted) {
       onSubmitted();
