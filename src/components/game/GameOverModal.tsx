@@ -1,9 +1,13 @@
 "use client";
 
 import { useI18n } from "@/i18n/useI18n";
-import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/Icon";
+import {
+  PixelButton,
+  PixelButtonGroup,
+  PixelPanel,
+  PixelScene,
+  PixelStats,
+} from "@/components/ui/PixelUI";
 import { GameMode, MAX_REVIVES_TA } from "@/types/game";
 
 interface GameOverModalProps {
@@ -15,6 +19,11 @@ interface GameOverModalProps {
   onGoHome: () => void;
 }
 
+/**
+ * ゲームオーバー。`PixelScene overlay` + `PixelPanel` で、ポーズ・リザルト・
+ * ランキングと同じ見え方にしてある。閉じる導線はボタンだけなので、
+ * Escape も背景クリックも受け付けない（誤操作でスコアを失わせないため）。
+ */
 export function GameOverModal({
   isOpen,
   mode,
@@ -25,40 +34,43 @@ export function GameOverModal({
 }: GameOverModalProps) {
   const { t } = useI18n();
 
+  if (!isOpen) return null;
+
   const canRevive = mode === "endless" || reviveCount < MAX_REVIVES_TA;
   const remainingRevives = mode === "ta" ? MAX_REVIVES_TA - reviveCount : null;
 
   return (
-    <Modal isOpen={isOpen} hideClose>
-      <div className="flex flex-col items-center gap-6">
-        <Icon name="skull" size="xl" />
-        <h2 className="text-2xl font-bold">{t("gameOver.title")}</h2>
-
+    <PixelScene width="menu" overlay label={t("gameOver.title")}>
+      <PixelPanel title="GAME OVER" subtitle={t("gameOver.title")}>
         {remainingRevives !== null && (
-          <p className="text-gray-400">
-            {t("gameOver.remaining")}: {remainingRevives}
-          </p>
+          <PixelStats
+            items={[
+              {
+                label: t("gameOver.remaining"),
+                value: remainingRevives,
+                danger: remainingRevives === 0,
+              },
+            ]}
+          />
         )}
 
-        <div className="flex flex-col gap-3 w-full">
+        <PixelButtonGroup>
           {canRevive && (
-            <Button onClick={onRevive} variant="primary" className="w-full">
-              <Icon name="ad" />
+            <PixelButton onClick={onRevive} size="lg" block leading="▶">
               {mode === "ta" ? t("gameOver.reviveWithPenalty") : t("gameOver.revive")}
-            </Button>
+            </PixelButton>
           )}
           {mode === "ta" ? (
-            <Button onClick={onGoHome} variant="secondary" className="w-full">
-              <Icon name="home" />
+            <PixelButton onClick={onGoHome} variant="secondary" size="lg" block leading="◀">
               {t("gameOver.backToHome")}
-            </Button>
+            </PixelButton>
           ) : (
-            <Button onClick={onGiveUp} variant="secondary" className="w-full">
+            <PixelButton onClick={onGiveUp} variant="secondary" size="lg" block leading="◀">
               {t("gameOver.giveUp")}
-            </Button>
+            </PixelButton>
           )}
-        </div>
-      </div>
-    </Modal>
+        </PixelButtonGroup>
+      </PixelPanel>
+    </PixelScene>
   );
 }

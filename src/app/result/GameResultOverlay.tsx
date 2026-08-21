@@ -2,37 +2,17 @@
 
 import { useI18n } from "@/i18n/useI18n";
 import { formatTime } from "@/hooks/useTimer";
-import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/Icon";
+import {
+  PixelButton,
+  PixelButtonGroup,
+  PixelMessage,
+  PixelPanel,
+  PixelScene,
+  PixelStats,
+  PixelTextField,
+} from "@/components/ui/PixelUI";
 import { GameMode, Difficulty } from "@/types/game";
 import { useResultSubmission } from "./useResultSubmission";
-
-interface StatRowProps {
-  label: string;
-  value: string | number;
-  emphasis?: boolean;
-  danger?: boolean;
-}
-
-function StatRow({ label, value, emphasis, danger }: StatRowProps) {
-  return (
-    <div className="flex justify-between items-center w-full">
-      <span className="text-sm font-bold text-gray-400">{label}</span>
-      <span
-        className={
-          danger
-            ? "text-lg font-mono tabular-nums text-red-400"
-            : emphasis
-              ? "text-3xl font-bold font-mono tabular-nums text-yellow-400"
-              : "text-lg font-mono tabular-nums"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
 
 export interface GameResultOverlayProps {
   isOpen: boolean;
@@ -53,13 +33,12 @@ export interface GameResultOverlayProps {
 }
 
 /**
- * リザルトを `/game` の盤面の上に重ねて表示するモーダル。
+ * リザルトを盤面の上に重ねて表示するオーバーレイ。
  *
- * `GameOverModal` / `ClearedModal`（src/components/game/）と同じ `Modal` を
- * 使い、盤面をアンマウントせずに結果を表示する。ページ遷移をやめたことで
- * 見た目もそれらと同じ濃紺HUDトーンに揃えている（CRYSTAL FIELDの氷原背景は
- * 使わない）。送信・スキップのロジックは `useResultSubmission` を
- * `/result` ページと共有している。
+ * `PixelScene overlay` + `PixelPanel` なので、ポーズ・ゲームオーバー・
+ * ランキングと枠も暗幕も一致する。中身の組み方（PixelStats + PixelTextField +
+ * PixelButtonGroup）はフルページ版の `/result` と揃えてあり、送信・スキップの
+ * ロジックは `useResultSubmission` を共有している。
  */
 export function GameResultOverlay({
   isOpen,
@@ -88,62 +67,58 @@ export function GameResultOverlay({
       onSubmitted,
     });
 
+  if (!isOpen) return null;
+
   const finalTimeMs = timeMs + penaltyMs;
   const title = mode === "ta" && cleared ? t("cleared.title") : t("result.title");
 
-  return (
-    <Modal isOpen={isOpen} hideClose>
-      <div className="flex flex-col items-center gap-6">
-        <Icon name="trophy" size="xl" />
-        <h2 className="text-2xl font-bold">{title}</h2>
+  const stats =
+    mode === "endless"
+      ? [
+          { label: t("result.level"), value: level },
+          { label: t("result.misses"), value: misses },
+          { label: t("result.score"), value: score.toLocaleString(), emphasis: true },
+        ]
+      : [
+          ...(penaltyMs > 0
+            ? [
+                { label: t("result.playTime"), value: formatTime(timeMs) },
+                { label: t("result.penalty"), value: `+${formatTime(penaltyMs)}`, danger: true },
+              ]
+            : []),
+          { label: t("result.finalTime"), value: formatTime(finalTimeMs), emphasis: true },
+        ];
 
+  return (
+    <PixelScene overlay label={title}>
+      <PixelPanel title="RESULT" subtitle={title}>
         {isNavigating ? (
-          <p className="text-gray-400">{t("common.loading")}</p>
+          <PixelMessage>{t("common.loading")}</PixelMessage>
         ) : (
           <>
-            <div className="w-full space-y-2">
-              {mode === "endless" ? (
-                <>
-                  <StatRow label={t("result.level")} value={level} />
-                  <StatRow label={t("result.misses")} value={misses} />
-                  <StatRow label={t("result.score")} value={score.toLocaleString()} emphasis />
-                </>
-              ) : (
-                <>
-                  {penaltyMs > 0 && (
-                    <>
-                      <StatRow label={t("result.playTime")} value={formatTime(timeMs)} />
-                      <StatRow
-                        label={t("result.penalty")}
-                        value={`+${formatTime(penaltyMs)}`}
-                        danger
-                      />
-                    </>
-                  )}
-                  <StatRow label={t("result.finalTime")} value={formatTime(finalTimeMs)} emphasis />
-                </>
-              )}
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full">
-              <input
-                type="text"
+            <PixelStats items={stats} />
+            <form onSubmit={handleSubmit}>
+              <PixelTextField
+                id="result-overlay-player-name"
+                label={t("result.playerName")}
+                optional={t("common.optional")}
                 value={playerName}
                 onChange={(event) => setPlayerName(event.target.value)}
                 placeholder={t("result.enterName")}
                 maxLength={50}
-                className="w-full rounded-lg bg-gray-800 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
-              <Button type="submit" variant="primary" className="w-full">
-                {t("result.submit")}
-              </Button>
-              <Button type="button" variant="ghost" className="w-full" onClick={handleSkip}>
-                {t("result.skip")}
-              </Button>
+              <PixelButtonGroup>
+                <PixelButton type="submit" size="lg" block leading="▶">
+                  {t("result.submit")}
+                </PixelButton>
+                <PixelButton type="button" variant="ghost" block leading="◀" onClick={handleSkip}>
+                  {t("result.skip")}
+                </PixelButton>
+              </PixelButtonGroup>
             </form>
           </>
         )}
-      </div>
-    </Modal>
+      </PixelPanel>
+    </PixelScene>
   );
 }

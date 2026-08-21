@@ -3,23 +3,31 @@
 import Link from "next/link";
 import {
   useEffect,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/i18n/useI18n";
 import styles from "./pixel-ui.module.css";
-import { BACKGROUND_WORLD, WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/background-world";
+import {
+  BACKGROUND_WORLD,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  type BackgroundPlacement,
+} from "@/lib/background-world";
+import { GAME_SCENERY } from "@/lib/game-scenery";
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
 
-function PixelBackdrop() {
+function PixelBackdrop({ placements }: { placements: BackgroundPlacement[] }) {
   return (
     <div className={styles.backdrop} aria-hidden="true">
       <div className={styles.world} style={{ width: WORLD_WIDTH, height: WORLD_HEIGHT }}>
-        {BACKGROUND_WORLD.map((p, index) => (
+        {placements.map((p, index) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`${p.name}-${index}`}
@@ -41,6 +49,8 @@ export function PixelScene({
   width = "normal",
   overlay = false,
   label,
+  layout = "panel",
+  scenery = "home",
 }: {
   children: ReactNode;
   languageToggle?: boolean;
@@ -50,16 +60,47 @@ export function PixelScene({
    *
    * 黒いレターボックスの代わりにビューポート全面の半透明の暗幕を敷き、
    * z-index を上げる。キャンバス（390x670）と transform は通常モードと
-   * 共有しているので、`PixelScene` を使っていない `/game` の上に重ねても、
-   * ホームの上に重ねたときとパネルの寸法・位置・拡大率が一致する。
+   * 共有しているので、どの画面の上に重ねてもパネルの寸法・位置・拡大率が
+   * 一致する。
    */
   overlay?: boolean;
   /** overlay のときにダイアログへ付ける名前。 */
   label?: string;
+  /**
+   * キャンバス内側のレイアウト。
+   *
+   * - `panel` … 既定。上下に余白を取り、中央へパネルを積む（ホーム・TA選択・
+   *   ランキング・リザルト）。
+   * - `full` … 余白と最大幅の制限を外し、キャンバス全面をページ側に明け渡す。
+   *   ゲーム画面のように HUD・盤面・操作ボタンを縦に配分したい画面で使う。
+   */
+  layout?: "panel" | "full";
+  /**
+   * 背景ワールドの絵柄。`overlay` のときは描かれない。
+   *
+   * ゲーム画面だけ別の配置表を使うのは、盤面と操作ボタンが占める領域が
+   * ホームのパネルと違うため。ホームの配置をそのまま敷くと、モチーフが
+   * 盤面の裏へほぼ隠れて縁から細い帯だけが覗く。
+   */
+  scenery?: "home" | "game";
 }) {
   const { language } = useI18n();
 
-  return (
+  /*
+   * overlay は `document.body` へポータルする。
+   *
+   * `.scene` は transform が掛かっているため、position:fixed な子孫の
+   * containing block になる（CSS仕様）。ゲーム画面自身が `PixelScene` に
+   * なった今、オーバーレイをその内側に置いたままにすると `.stage` の
+   * inset:0 がキャンバス基準になり、さらに `.scene` の scale が親子で
+   * 二重に掛かってしまう（実測: 430px 幅で 1.103 x 1.103 = 1.217倍）。
+   * body へ逃がすことで、どの画面から開いても実ビューポート基準の
+   * 同じ倍率になる。
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const tree = (
     // .stage が黒いレターボックス、.scene が 390x670 の固定キャンバス。
     // 中身がキャンバス高さを超えるページはキャンバス内の .scroll だけがスクロールし、
     // 背景と黒帯は動かない。
@@ -75,14 +116,23 @@ export function PixelScene({
       aria-label={overlay ? label : undefined}
     >
       <div className={cx(styles.scene, language === "en" && styles.sceneEnglish)}>
-        {!overlay && <PixelBackdrop />}
+        {!overlay && (
+          <PixelBackdrop placements={scenery === "game" ? GAME_SCENERY : BACKGROUND_WORLD} />
+        )}
         <div className={styles.scroll}>
-          <main className={cx(styles.content, overlay && styles.contentOverlay)}>
+          <main
+            className={cx(
+              styles.content,
+              overlay && styles.contentOverlay,
+              layout === "full" && styles.contentFull,
+            )}
+          >
             <div
               className={cx(
                 styles.stack,
                 width === "menu" && styles.stackMenu,
                 width === "wide" && styles.stackWide,
+                layout === "full" && styles.stackFull,
               )}
             >
               {children}
@@ -91,6 +141,24 @@ export function PixelScene({
           </main>
         </div>
       </div>
+    </div>
+  );
+
+  if (!overlay) return tree;
+  if (!mounted) return null;
+  return createPortal(tree, document.body);
+}
+
+/**
+ * 破線＋中央の四角のディバイダー。
+ * `PixelPanel` のタイトル下と、ゲーム画面の HUD で同じものを使う。
+ */
+export function PixelDivider() {
+  return (
+    <div className={styles.divider} aria-hidden="true">
+      <span />
+      <i />
+      <span />
     </div>
   );
 }
@@ -110,11 +178,7 @@ export function PixelPanel({
     <section className={cx(styles.panel, compact && styles.panelCompact)}>
       <header className={styles.titleBlock}>
         <h1 className={styles.title}>{title}</h1>
-        <div className={styles.divider} aria-hidden="true">
-          <span />
-          <i />
-          <span />
-        </div>
+        <PixelDivider />
         {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
       </header>
       {children}

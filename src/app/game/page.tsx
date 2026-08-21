@@ -12,8 +12,13 @@ import { ScorePopup } from "@/components/game/ScorePopup";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverModal } from "@/components/game/GameOverModal";
 import { ClearedModal } from "@/components/game/ClearedModal";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/Icon";
+import {
+  PixelButton,
+  PixelDivider,
+  PixelMessage,
+  PixelPanel,
+  PixelScene,
+} from "@/components/ui/PixelUI";
 import { MilestoneEffect } from "@/components/game/MilestoneEffect";
 import { GameResultOverlay } from "@/app/result/GameResultOverlay";
 import { RankingOverlay } from "@/app/ranking/RankingOverlay";
@@ -223,18 +228,12 @@ function GameContent() {
   const remainingBombs = state.bombCount - countFlags(state.board);
 
   return (
-    <main className={styles.page}>
-      <span className={`${styles.crystalCluster} ${styles.crystalLeft}`} aria-hidden="true" />
-      <span className={`${styles.crystalCluster} ${styles.crystalRight}`} aria-hidden="true" />
-
-      <section className={styles.gameShell}>
+    <PixelScene layout="full" scenery="game">
+      <div className={styles.shell}>
         <header className={styles.hud}>
-          <div className={styles.hudTitle}>
-            <span className={styles.snowflake} aria-hidden="true">❄</span>
-            <span>
-              <strong>GRADIENT GLACIER</strong>
-              <small>{mode === "endless" ? "ENDLESS EXPEDITION" : "TIME ATTACK"}</small>
-            </span>
+          <h1 className={styles.hudTitle}>{mode === "endless" ? "ENDLESS" : "TIME ATTACK"}</h1>
+          <div className={styles.hudDivider}>
+            <PixelDivider />
           </div>
 
           <div className={styles.statusGrid}>
@@ -269,9 +268,16 @@ function GameContent() {
               <strong>{mode === "endless" ? state.lives : `${state.reviveCount}/${MAX_REVIVES_TA}`}</strong>
             </div>
 
+            {/*
+              TAモードでの4枚目は以前「MODE / TA」だったが、モード名は HUD の
+              タイトルが名乗るようになったので、代わりに難易度を出す。
+              未指定のときの既定は useGame の createInitialState と同じ easy。
+            */}
             <div className={`${styles.statusCard} ${styles.levelCard}`}>
-              <span>{mode === "endless" ? "LEVEL" : "MODE"}</span>
-              <strong>{mode === "endless" ? state.level : "TA"}</strong>
+              <span>{mode === "endless" ? "LEVEL" : "DIFF"}</span>
+              <strong>
+                {mode === "endless" ? state.level : (difficulty ?? "easy").toUpperCase()}
+              </strong>
             </div>
           </div>
         </header>
@@ -288,21 +294,26 @@ function GameContent() {
             />
 
             {mode === "endless" && <ScorePopup popups={popups} />}
-
-            {state.isPaused && <PauseOverlay mode={mode} onResume={resume} onQuit={handleQuitFromPause} />}
           </div>
         </div>
 
         <div className={styles.controls}>
-          <Button
+          <PixelButton
             onClick={pause}
-            variant="ghost"
+            size="lg"
+            leading="||"
             disabled={state.isGameOver || state.isCleared}
           >
-            <Icon name={mode === "endless" ? "menu" : "pause"} />
             {mode === "endless" ? t("game.menu") : t("game.pause")}
-          </Button>
+          </PixelButton>
         </div>
+
+        <PauseOverlay
+          isOpen={state.isPaused}
+          mode={mode}
+          onResume={resume}
+          onQuit={handleQuitFromPause}
+        />
 
         <GameOverModal
           isOpen={showGameOverModal && !resultSnapshot}
@@ -343,14 +354,22 @@ function GameContent() {
           initialDifficulty={difficulty ?? undefined}
           onBack={() => router.push("/")}
         />
-      </section>
-    </main>
+      </div>
+    </PixelScene>
   );
 }
 
 export default function GamePage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+    <Suspense
+      fallback={
+        <PixelScene scenery="game">
+          <PixelPanel title="LOADING" compact>
+            <PixelMessage>Loading...</PixelMessage>
+          </PixelPanel>
+        </PixelScene>
+      }
+    >
       <GameContent />
     </Suspense>
   );

@@ -1,103 +1,102 @@
-.page {
-  position: relative;
-  min-height: 100dvh;
-  overflow: hidden;
-  padding: 12px 8px 40px;
-  color: #f7fcff;
-  background-color: #e7f8ff;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cpath fill='%2369acd1' fill-opacity='.22' d='M10 18h4v4h-4zM14 22h8v4h-8zM68 52h4v8h-4zM72 56h8v4h-8zM37 79h4v4h-4z'/%3E%3Cpath fill='%23ffffff' fill-opacity='.9' d='M48 9h6v4h-6zM52 13h4v4h-4zM20 62h4v4h-4zM82 28h6v4h-6z'/%3E%3C/svg%3E"),
-    linear-gradient(180deg, #f1fcff 0%, #d9f1fb 48%, #edfaff 100%);
-  font-family: "VT323", ui-monospace, monospace;
+/*
+ * ゲーム画面の中身。
+ *
+ * 外枠（黒いレターボックス・390x670 の固定キャンバス・背景ワールド・配色の
+ * カスタムプロパティ・フォント）は `PixelScene`（layout="full"）が持つ。
+ * ここが受け持つのは、その 670px の高さに HUD・盤面・操作ボタンを配分することと、
+ * それぞれをホームと同じドット絵の意匠で描くことだけ。
+ *
+ * 色は `.scene` に載っている `--navy-*` / `--cyan` / `--amber` をそのまま使う。
+ * ゲーム画面だけ別の紺を持っていたのがホームとの不一致の主因だったので、
+ * このファイルに生の色コードを増やさないこと。
+ */
+
+/*
+ * 縦の配分。合計は必ず 670px に収める（収まらないとキャンバス内がスクロールし、
+ * 背景に対して中身だけが動いてしまう）。
+ *
+ *   14  上の余白
+ *  114  HUD（モード名 + ステータス4枚）
+ *   ↕   すきま（余り / 2）
+ *  342  盤面フレーム（324 の盤面 + 内側6px + 枠3px）
+ *   ↕   すきま（余り / 2）
+ *   52  操作ボタン
+ *   38  下の余白
+ *
+ * 固定分の合計は 560px。残り 110px を space-between が2つのすきまへ均等に
+ * 配る。HUD の高さは言語やモードで変わるので、数値で固定せず余りで吸収する。
+ */
+.shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 38px;
 }
 
-.page::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  top: 156px;
-  left: 50%;
-  width: 520px;
-  height: 104px;
-  transform: translateX(-50%);
-  opacity: 0.7;
-  background:
-    linear-gradient(90deg, transparent 0 7%, #b9e1f3 7% 19%, transparent 19% 27%, #91c9e5 27% 43%, transparent 43% 51%, #b3dcef 51% 68%, transparent 68% 76%, #93cbe6 76% 90%, transparent 90%),
-    linear-gradient(180deg, transparent 0 54%, #c9e9f6 54% 74%, #edfaff 74%);
-  clip-path: polygon(0 78%, 8% 78%, 8% 62%, 18% 62%, 18% 70%, 27% 70%, 27% 42%, 39% 42%, 39% 65%, 50% 65%, 50% 28%, 61% 28%, 61% 58%, 72% 58%, 72% 45%, 84% 45%, 84% 70%, 100% 70%, 100% 100%, 0 100%);
-}
-
-.gameShell {
-  position: relative;
-  z-index: 2;
-  width: min(100%, 390px);
-  margin: 0 auto;
-}
-
+/*
+ * HUD。`PixelPanel`（pixel-ui.module.css の .panel）と同じ枠・同じ影にする。
+ * 角の切り欠きもパネルと同じ三角形で、ゲーム画面だけにあった四角い鋲はやめた。
+ */
 .hud {
   position: relative;
-  padding: 9px 9px 11px;
-  border: 3px solid #061a37;
-  outline: 2px solid #6ca6d2;
-  background: #0a2851;
+  width: 100%;
+  padding: 9px 10px 11px;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid var(--cyan);
+  outline-offset: -7px;
+  background: var(--navy-900);
   box-shadow:
-    inset 0 0 0 2px #2b6598,
-    inset 0 -5px 0 #04142d,
-    0 4px 0 #0a3968,
-    4px 8px 0 rgba(37, 99, 146, 0.18);
+    inset 0 0 0 1px var(--navy-700),
+    inset 0 -6px 0 rgba(4, 15, 32, 0.35),
+    0 6px 0 rgba(15, 35, 70, 0.35),
+    6px 12px 0 rgba(20, 45, 90, 0.18);
+  color: #fff;
 }
 
 .hud::before,
 .hud::after {
-  content: "";
   position: absolute;
-  top: 3px;
-  width: 7px;
-  height: 7px;
-  border: 1px solid #8fc4e7;
-  background: #2c6496;
-  box-shadow: inset 1px 1px #d5f1ff;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  background: var(--navy-950);
+  content: "";
 }
 
-.hud::before { left: 3px; }
-.hud::after { right: 3px; }
+.hud::before {
+  top: -3px;
+  left: -3px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
 
+.hud::after {
+  right: -3px;
+  bottom: -3px;
+  clip-path: polygon(100% 100%, 100% 0, 0 100%);
+}
+
+/*
+ * モード名。製品名（GRADIENT SWEEPER）はホームのタイトルが名乗るので、
+ * ゲーム中は出さない。ここが名乗るのは今どのモードを遊んでいるかだけ。
+ */
 .hudTitle {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  margin-bottom: 8px;
-}
-
-.hudTitle strong,
-.hudTitle small {
-  display: block;
-}
-
-.hudTitle strong {
-  font-size: 28px;
+  margin: 0 0 2px;
+  color: #fff;
+  font-family: var(--block-font);
+  font-size: 22px;
   font-weight: 400;
-  letter-spacing: 0.035em;
-  line-height: 0.78;
-  text-shadow: 2px 2px 0 #173d70;
+  letter-spacing: 0.11em;
+  line-height: 1.05;
+  text-align: center;
+  text-shadow: 2px 2px 0 rgba(4, 15, 32, 0.6);
 }
 
-.hudTitle small {
-  margin-top: 6px;
-  color: #91c8ed;
-  font-size: 12px;
-  letter-spacing: 0.13em;
-  line-height: 1;
-}
-
-.snowflake {
-  color: #effcff;
-  font-family: Arial, sans-serif;
-  font-size: 27px;
-  line-height: 1;
-  text-shadow: 2px 2px 0 #3978a9;
+/* ディバイダー（PixelDivider）と下のステータスの間。 */
+.hudDivider {
+  margin-bottom: 9px;
 }
 
 .statusGrid {
@@ -114,63 +113,71 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 2px solid #376997;
-  background: #081d3d;
-  box-shadow:
-    inset 2px 2px 0 #1b4775,
-    inset -2px -2px 0 #030d1f;
+  border: 1px solid var(--navy-700);
+  background: var(--navy-950);
   line-height: 0.9;
 }
 
 .statusCard span {
-  color: #91b8dc;
-  font-size: 12px;
+  color: #a9c8e8;
+  font-family: var(--block-font);
+  font-size: 13px;
   letter-spacing: 0.06em;
 }
 
 .statusCard strong {
   display: block;
   max-width: 100%;
-  margin-top: 3px;
+  margin-top: 4px;
   overflow: hidden;
   color: #fff;
+  font-family: var(--block-font);
   font-size: 21px;
   font-weight: 400;
+  font-variant-numeric: tabular-nums;
   line-height: 0.8;
   text-overflow: clip;
-  text-shadow: 2px 2px 0 #020b1c;
   white-space: nowrap;
 }
 
+/* TAモードの復活ペナルティ（+30s）のポップアップ。 */
 .statusCard em {
   position: absolute;
   z-index: 4;
   top: -2px;
   left: 50%;
-  color: #ff7187;
+  color: #ff9aaa;
+  font-family: var(--block-font);
   font-size: 18px;
   font-style: normal;
   white-space: nowrap;
 }
 
-.primaryCard { border-top-color: #78b7e4; }
-.redCard { border-top-color: #dc6278; }
-.blueCard { border-top-color: #5c9ee8; }
-.levelCard { border-top-color: #d6b26a; }
+/*
+ * 4枚の色分けは上辺だけ。使う色はホームのアクセントに揃えてある
+ * （cyan / danger の桃 / 淡い水色 / amber）。
+ */
+.primaryCard { border-top: 2px solid var(--cyan); }
+.redCard { border-top: 2px solid #ff9aaa; }
+.blueCard { border-top: 2px solid #8fb6dc; }
+.levelCard { border-top: 2px solid var(--amber); }
 
+/*
+ * 盤面フレーム。パネルと同じ枠・同じ落ち影で、中身だけ氷の色。
+ * width: max-content なので、盤面（324px）にぴったり張り付く。
+ */
 .boardFrame {
   width: max-content;
   max-width: 100%;
-  margin: 70px auto 0;
   padding: 6px;
-  border: 3px solid #092d5d;
-  outline: 2px solid #56a7df;
-  background: #2f78aa;
+  border: 3px solid var(--navy-950);
+  outline: 2px solid var(--cyan);
+  outline-offset: -5px;
+  background: var(--navy-800);
   box-shadow:
-    inset 2px 2px 0 #9ae0ff,
-    inset -3px -3px 0 #052654,
-    0 4px 0 #062755,
-    5px 8px 0 rgba(23, 80, 128, 0.23);
+    inset 0 0 0 1px var(--navy-700),
+    0 6px 0 rgba(15, 35, 70, 0.35),
+    6px 12px 0 rgba(20, 45, 90, 0.18);
 }
 
 .boardArea {
@@ -179,58 +186,30 @@
   width: calc(var(--cell-size) * 9);
   height: calc(var(--cell-size) * 9);
   background: #d9f2fb;
-  box-shadow: 0 0 0 1px #8ac5df;
+  box-shadow: 0 0 0 1px var(--navy-700);
   isolation: isolate;
 }
 
 .controls {
   display: flex;
   justify-content: center;
-  margin-top: 24px;
 }
 
+/*
+ * 操作ボタンはパネルの中ではなく背景の上に単独で置かれる。
+ * ホームの言語トグルと同じ落ち影を付けて、背景から浮かせる。
+ * 幅は左右のクリスタル（x104 まで / x271 から）に触れない範囲でいちばん広い値。
+ */
 .controls button {
-  min-width: 112px;
-  border: 3px solid #061a37;
-  border-radius: 0;
-  color: #f7fcff;
-  background: #123f72;
+  min-width: 140px;
   box-shadow:
-    inset 2px 2px 0 #4e83ad,
-    inset -2px -2px 0 #061a37,
-    0 4px 0 #062755;
-  font-family: "VT323", ui-monospace, monospace;
-  font-size: 20px;
-  letter-spacing: 0.04em;
+    inset 0 -4px 0 rgba(4, 15, 32, 0.28),
+    4px 7px 0 rgba(20, 45, 90, 0.18);
 }
 
-.controls button:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 2px 2px 0 #061a37,
-    inset -2px -2px 0 #4e83ad,
-    0 2px 0 #062755;
-}
-
-.crystalCluster {
-  position: absolute;
-  z-index: 1;
-  bottom: 18px;
-  width: 38px;
-  height: 64px;
-  background: linear-gradient(90deg, #1554bd 0 28%, #55c8ff 29% 52%, #1261d4 53% 100%);
-  clip-path: polygon(50% 0, 86% 28%, 86% 86%, 100% 100%, 0 100%, 14% 86%, 14% 28%);
-  box-shadow: 5px 7px 0 rgba(16, 64, 134, 0.25);
-}
-
-.crystalLeft { left: 8px; }
-.crystalRight { right: 8px; transform: scaleX(-1); }
-
-@media (max-width: 359px) {
-  .page {
-    padding-inline: 2px;
-  }
-
-  .hudTitle strong { font-size: 25px; }
-  .statusCard strong { font-size: 19px; }
-}
+/*
+ * 旧 `@media (max-width: 359px)` の詰めルールは削除した。
+ * キャンバス内の幅は常に 390px で、狭い機種は画面ごと縮小されるだけなので、
+ * 実ビューポート幅で中身を変えると、その機種だけ別の絵になってしまう。
+ * （pixel-ui.module.css の同じ判断に合わせている）
+ */

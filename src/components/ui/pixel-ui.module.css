@@ -215,6 +215,16 @@
   padding: 24px 16px;
 }
 
+/*
+ * キャンバス全面をページ側に明け渡すモード（PixelScene の layout="full"）。
+ * ゲーム画面は HUD・盤面・操作ボタンを 670px の中へ自分で配分するので、
+ * ここでは余白と最大幅の制限を外すだけにする。
+ */
+.contentFull {
+  align-items: stretch;
+  padding: 0;
+}
+
 .stack {
   display: flex;
   width: 100%;
@@ -222,6 +232,11 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
+}
+
+.stackFull {
+  max-width: none;
+  gap: 0;
 }
 
 .stackMenu {
