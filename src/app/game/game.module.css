@@ -1,9 +1,9 @@
 /*
  * ゲーム画面の中身。
  *
- * 外枠（黒いレターボックス・390x670 の固定キャンバス・背景ワールド・配色の
+ * 外枠（黒いレターボックス・390x550 の固定キャンバス・背景ワールド・配色の
  * カスタムプロパティ・フォント）は `PixelScene`（layout="full"）が持つ。
- * ここが受け持つのは、その 670px の高さに HUD・盤面・操作ボタンを配分することと、
+ * ここが受け持つのは、その 550px の高さに HUD・盤面・操作ボタンを配分することと、
  * それぞれをホームと同じドット絵の意匠で描くことだけ。
  *
  * 色は `.scene` に載っている `--navy-*` / `--cyan` / `--amber` をそのまま使う。
@@ -12,19 +12,30 @@
  */
 
 /*
- * 縦の配分。合計は必ず 670px に収める（収まらないとキャンバス内がスクロールし、
- * 背景に対して中身だけが動いてしまう）。
+ * 縦の配分。合計は必ずキャンバス高さ（550px）に収める。収まらないとキャンバス内が
+ * スクロールし、背景に対して中身だけが動いてしまう。
  *
- *   14  上の余白
- *  114  HUD（モード名 + ステータス4枚）
+ *   10  上の余白
+ *   93  HUD（モード名 + ステータス4枚）
  *   ↕   すきま（余り / 2）
  *  342  盤面フレーム（324 の盤面 + 内側6px + 枠3px）
  *   ↕   すきま（余り / 2）
- *   52  操作ボタン
- *   38  下の余白
+ *   46  操作ボタン
+ *   10  下の余白
  *
- * 固定分の合計は 560px。残り 110px を space-between が2つのすきまへ均等に
- * 配る。HUD の高さは言語やモードで変わるので、数値で固定せず余りで吸収する。
+ * 固定分の合計は 501px。残り 49px を space-between が2つのすきまへ均等に配る。
+ * HUD の高さは言語やモードで変わるので、数値で固定せず余りで吸収する。
+ *
+ * === なぜ詰めたか ===
+ *
+ * キャンバス高さが 670 だった頃はここが 576 + すきま 94 だった。iPhone SE で
+ * 左右の黒帯を消すためにキャンバスを 550 へ詰めた（理由は pixel-ui.module.css の
+ * 冒頭コメント）ので、固定分から 75px 削っている。
+ *
+ * **盤面フレームの 342px だけは動かせない。** 324px の盤面は 9 x 36px のセルで
+ * できていて、セルの寸法は PNG アセットの実寸だから変えられない（AGENTS.md）。
+ * だから削れるのは上下の余白・操作ボタン・HUD の3つだけで、
+ * ここを増やしたくなったら必ずこの3つの中で融通すること。
  */
 .shell {
   display: flex;
@@ -33,7 +44,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 38px;
+  padding: 10px 16px 10px;
 }
 
 /*
@@ -43,7 +54,7 @@
 .hud {
   position: relative;
   width: 100%;
-  padding: 9px 10px 11px;
+  padding: 7px 10px 8px;
   border: 3px solid var(--navy-950);
   outline: 2px solid var(--cyan);
   outline-offset: -7px;
@@ -83,10 +94,10 @@
  * ゲーム中は出さない。ここが名乗るのは今どのモードを遊んでいるかだけ。
  */
 .hudTitle {
-  margin: 0 0 2px;
+  margin: 0 0 1px;
   color: #fff;
   font-family: var(--block-font);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 400;
   letter-spacing: 0.11em;
   line-height: 1.05;
@@ -96,7 +107,8 @@
 
 /* ディバイダー（PixelDivider）と下のステータスの間。 */
 .hudDivider {
-  margin-bottom: 9px;
+  margin-top: 7px;
+  margin-bottom: 5px;
 }
 
 .statusGrid {
@@ -109,7 +121,7 @@
   position: relative;
   display: flex;
   min-width: 0;
-  height: 50px;
+  height: 44px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -203,10 +215,13 @@
  * 既定の .button_primary はパネル（--navy-900）の上に載る前提の色で、薄い水色の
  * 背景に直接置くとコントラストが強すぎて重く見えるため、ここで打ち消している。
  *
- * 幅は左右のクリスタル（x104 まで / x271 から）に触れない範囲でいちばん広い値。
+ * 幅 124px は、左に置いたクリスタル（game-scenery.ts、不透明部分が x123 まで）と
+ * 10px 空ける値。ラベルは「メニュー」/「MENU」なので余裕はある。
  */
 .controls button {
-  min-width: 140px;
+  min-width: 124px;
+  /* 既定の .button_md は上下 11px。キャンバスを 550 に詰めたぶんここで 5px ずつ返す。 */
+  padding: 6px 13px;
   outline-offset: -3px;
   background: var(--navy-900);
   box-shadow: var(--on-scene-shadow);

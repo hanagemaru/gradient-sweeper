@@ -54,7 +54,7 @@ export function MilestoneEffect({ score, renderMilestone }: MilestoneEffectProps
   }
 
   // `fixed inset-0` は `.scene` の transform によってキャンバス基準に読み替えられる
-  // ので、演出は 390x670 の中に収まる。
+  // ので、演出は 390x550 の中に収まる。
   return (
     <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center milestone-flash">
       <div

@@ -13,10 +13,10 @@
  * `src/components/ui/pixel-ui.module.css` の `.scene` と必ず一致させること。
  */
 export const CANVAS_WIDTH = 390;
-export const CANVAS_HEIGHT = 670;
+export const CANVAS_HEIGHT = 550;
 
 /**
- * メインメニュー（ホーム）の遮蔽物。倍率1（ビューポート 390x670）の
+ * メインメニュー（ホーム）の遮蔽物。倍率1（ビューポート 390x550）の
  * DOM から実測した値。
  *
  * `UI_KEEPOUT`（生成スクリプト側）は全ページの和に落ち影の余裕を足した
@@ -29,8 +29,8 @@ export const CANVAS_HEIGHT = 670;
  * docs/technical/BACKGROUND-WORLD.md）。
  */
 export const HOME_OCCLUDERS = [
-  { x0: 35, x1: 355, y0: 120, y1: 423 }, // .panel
-  { x0: 134, x1: 256, y0: 437, y1: 488 }, // .languageToggle
+  { x0: 35, x1: 355, y0: 98, y1: 401 }, // .panel
+  { x0: 134, x1: 256, y0: 415, y1: 466 }, // .languageToggle
 ];
 
 /**
