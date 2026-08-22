@@ -36,15 +36,36 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
     };
   }, []);
 
+  /**
+   * 盤面の実効倍率（ビューポート px / キャンバス px）。
+   *
+   * 盤面は `PixelScene` の固定キャンバスの中にあり、`.scene` には
+   * `transform: scale()` が掛かっている。`getBoundingClientRect()` はその適用後の
+   * 実寸を返すので、transform 前の値である `--cell-size`（36px）と直接割り算すると
+   * 倍率のぶんだけずれる。
+   *
+   * 倍率は `rect.width`（transform 後）と `offsetWidth`（transform 前のレイアウト幅）の
+   * 比から求める。`.scene` の倍率式を JS 側へ書き写さずに済むので、将来キャンバスの
+   * 寸法や倍率式を変えてもここは直さなくてよい。
+   */
+  const getScale = useCallback((): number => {
+    const el = boardRef.current;
+    if (!el) return 1;
+    const width = el.getBoundingClientRect().width;
+    return el.offsetWidth > 0 && width > 0 ? width / el.offsetWidth : 1;
+  }, []);
+
   const getCellFromPoint = useCallback(
     (x: number, y: number): { row: number; col: number } | null => {
       if (!boardRef.current) return null;
 
       const rect = boardRef.current.getBoundingClientRect();
-      const relX = x - rect.left;
-      const relY = y - rect.top;
+      // ビューポート px → キャンバス px。以降はすべてキャンバス座標系で扱う
+      const scale = getScale();
+      const relX = (x - rect.left) / scale;
+      const relY = (y - rect.top) / scale;
 
-      // CSS変数から値を取得
+      // CSS変数から値を取得（transform 前の値なので、上で換算した座標と単位が揃う）
       const style = getComputedStyle(boardRef.current);
       const cellSize = parseFloat(style.getPropertyValue("--cell-size")) || 36;
       const gap = parseFloat(style.getPropertyValue("--gap") || "0");
@@ -60,7 +81,7 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
 
       return { row, col };
     },
-    []
+    [getScale]
   );
 
   const handleSwipe = useCallback(
@@ -82,10 +103,11 @@ export function Board({ board, onReveal, onFlag, disabled = false, showAllBombs 
   );
 
   const swipeHandlers = useSwipe({
-    threshold: 36, // cellSize
+    threshold: 36, // cellSize（キャンバス px）
     onSwipe: handleSwipe,
     onTap: handleTap,
     getCellFromPoint,
+    getScale,
   });
 
   // PC用のクリックハンドラ

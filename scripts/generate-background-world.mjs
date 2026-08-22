@@ -38,7 +38,7 @@ const REVIEW_DIR =
   process.env.REVIEW_DIR ?? "/tmp/gradient-sweeper-background-review";
 
 /**
- * 固定キャンバス方式（390x670を1枚だけ描く）。これが現在の本番の方式。
+ * 固定キャンバス方式（390x550を1枚だけ描く）。これが現在の本番の方式。
  *
  * ワールド=キャンバスなのでタイリングも複数ビューポート対応も不要になり、
  * UI_KEEPOUT・CRYSTAL_SLOTS も単一の実測値だけで足りる。
@@ -113,24 +113,18 @@ const MIN_GAP = 15;
 /**
  * CANVAS_MODE のキープアウト。
  *
- * 固定キャンバス(390x670)では画面サイズが1つしかないので、実測も1回で済む。
- * ただし**ページごとにパネルの高さが違う**。倍率1（ビューポート 390x670）で
- * 実測した `.stack`（パネル＋言語トグル）の下端は:
+ * 固定キャンバス(390x550)では画面サイズが1つしかないので、実測も1回で済む。
+ * ただし**ページごとにパネルの高さが違う**。倍率1（ビューポート 390x550）で
+ * 実測した `.stack` の下端は home 466 / ranking 489 / ta 492 / result 604。
  *
- *   home     [120,488]   （パネル 120-423 + 言語トグル 437-488）
- *   ranking  [120,511]
- *   ta       [120,514]
- *   result   [120,626]   ← 最も高い
+ * y0 は `.content` の padding-top 98 から 10px の余裕を引いた 88。
+ * y1 は result を除く最大（ta の 492）に余裕 10px を足した 502。
  *
- * y1 は result を除く最大（ta の 514）に、落ち影と余裕の 10px を足した 524。
- * result だけ別扱いにしているのは、`CANVAS_BOTTOM_BANDS` のコメントにある
- * 「完全に見える or 完全にパネルの裏」を成立させるため（下側の帯は
- * result のパネルの裏に完全に収まるように取ってある）。
- *
- * y0=120 は `pixel-ui.module.css` の `.content { padding-top: 120px }` と直結。
- * レイアウトを変えたらここも実測を取り直すこと。
+ * result だけ別扱いにしているのは「完全に見える or 完全にパネルの裏」の規則の
+ * ため（result ではパネルがキャンバス下端まで伸びるので、下の帯のものは
+ * 全部その裏に入る）。
  */
-const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 110, y1: 524 };
+const CANVAS_UI_KEEPOUT = { x0: 25, x1: 365, y0: 88, y1: 502 };
 
 const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 468, y1: 1096 };
 
@@ -166,101 +160,51 @@ const UI_KEEPOUT = CANVAS_MODE ? CANVAS_UI_KEEPOUT : { x0: 1233, x1: 1647, y0: 4
  * (above-far, below) のどちらかなので、これで1画面に同じクリスタルは並ばない。
  */
 /**
- * CANVAS_MODE の予約枠。
+* CANVAS_MODE の予約枠。
  *
  * 画面サイズが1つしかないので、機種ごとに帯を分ける必要がない
  * （＝固定キャンバス化の狙いそのもの）。使うクリスタルを1つずつ、
  * 全部この枠で確保する。島と fillGaps はクリスタルを置かない（下記
  * `CANVAS_MODE` の分岐）ので、画面に映るクリスタルはここの枠だけになる。
  *
- * cluster-large はデザイン判断で不採用。枠を持たない＝どこにも出てこない。
+ * 帯は2つ。**装飾を置ける場所はこの2つで全部**で、合計はキャンバス高さから
+ * パネルの占める高さを引いた残りなので、片方を広げれば片方が狭くなる。
  *
- * 帯は2つ:
- *   上 y[4,102]   … キープアウト上端 110 の上。98px しかないので小型のみ。
- *   下 y[524,626] … キープアウト下端 524 の下、result のパネル下端 626 の上。102px。
+ *   上 y[4,88]    … キープアウト上端 88 の上。84px。
+ *   下 y[502,550] … キープアウト下端 502 の下、キャンバス下端 550 まで。48px。
  *
- * 上の帯はキープアウト上端（110）基準なのでキャンバス高さを変えても動かない。
- * 下の帯はページごとのパネル下端に挟まれた「クリーンゾーン」なので、
- * キャンバス高さや `.content` の padding を変えたら必ず実測を取り直すこと。
- * 844 のときの下帯は y[504,840] の 336px で、両方のクリスタルを段に分ける
- * 余裕があった。670 では 102px しかない（下記 CANVAS_BOTTOM_BANDS 参照）。
+ * === cluster-medium を落とした理由（元に戻す前に読むこと） ===
  *
- * パネルの上に置くのは一番小さい accent-small だけ（指定）。
- * 残り2つは下の帯へ回す。
+ * キャンバス高さが 670 だった頃は上 98px + 下 102px = 200px あり、
+ * accent-small(33) + cluster-medium(84) + cluster-wide(45) = 162px が入った。
+ * 550 では 84 + 48 = 132px しかなく、162px は入らない。
+ *
+ * **cluster-medium は不透明部分が 84px あり、下の帯(48px)には入らない。**
+ * 上の帯(84px)には数字の上は入るが、Y が一意に決まってしまう（遊びゼロ）うえ、
+ * 「パネルの上に置くのは一番小さい accent-small だけ」というレーンGの
+ * デザイン決定に反する。よって cluster-medium は枠を持たない＝どこにも出ない。
+ * cluster-large が不採用なのと同じ扱い。
+ *
+ * 戻したい場合はキャンバス高さを増やすしかないが、それは iPhone SE で
+ * 左右に黒帯が戻ることを意味する（pixel-ui.module.css の冒頭コメント）。
  *
  * y は PNG の矩形ではなく不透明部分（oy/oh）が帯に収まるように決めてある。
  *   accent-small   40x40  不透明 (3,7)  34x33 → 不透明 y = Y+7 .. Y+40
- *   cluster-medium 110x90 不透明 (9,6)  92x84 → 不透明 y = Y+6 .. Y+90
  *   cluster-wide  120x80  不透明 (3,35) 114x45 → 不透明 y = Y+35 .. Y+80
  */
 const CANVAS_CRYSTAL_SLOTS = [
-  // 上の帯。不透明 y = Y+7..Y+40 を [4,102] に収める → Y in [-3,62]。
-  { key: "above-small", name: "accent-small", x0: 10, x1: 380, y0: 8, y1: 60, behindPanel: false },
-  // 下の帯。y0/y1 は resolveCanvasBottomBands が段ごとに埋める。
-  { key: "bottom-medium", name: "cluster-medium", x0: 10, x1: 380, behindPanel: false },
-  { key: "bottom-wide", name: "cluster-wide", x0: 10, x1: 380, behindPanel: false },
+  // 上の帯。不透明 y = Y+7..Y+40 を [4,88] に収める → Y in [-3,48]。
+  { key: "above-small", name: "accent-small", x0: 10, x1: 380, y0: 8, y1: 46, behindPanel: false },
+  // 下の帯。不透明 y = Y+35..Y+80 を [502,550] に収める → Y in [467,470]。
+  // 縦の遊びは 3px しかないが、横は x[10,380] の 370px を自由に使える。
+  { key: "bottom-wide", name: "cluster-wide", x0: 10, x1: 380, y0: 467, y1: 470, behindPanel: false },
 ];
 
-/**
- * 下の帯に入る2つのクリスタルの Y。
- *
- * 満たすべき条件が2つある。
- *
- * 1. **どのページでも「完全に見える」か「完全にパネルの裏」のどちらかになる。**
- *    中途半端に半分だけパネルへ潜り込む見え方は不可（既出の指摘）。
- *    パネル下端はページごとに 488 / 511 / 514 / 626（CANVAS_UI_KEEPOUT の
- *    コメント参照）なので、不透明部分を **y[524,626] に収める**と
- *    home/ranking/ta では全部見え、result では全部パネルの裏に入る。
- *    帯の上端 524 はキープアウト下端、下端 626 は result のパネル下端。
- *
- * 2. **2つを同じ高さに置くと横一列に並んで見えて不自然**（既出の指摘）。
- *    帯が 336px あった 844 のときは上下2段に割って 44px の空白を強制できたが、
- *    670 では帯が 102px しかなく、不透明部分の合計 129px（84 + 45）すら入らない。
- *    段に割るのはやめ、**不透明部分の中心をできるだけずらす**ことで代替する。
- *    横方向は帯幅 370px を使って `fits()` の MIN_GAP が離してくれるので、
- *    「中心がずれた2つが横に離れて置かれる」絵になる。
- *
- * 値は矩形の Y。不透明部分が帯に収まるよう oy を引いてある。
- *   cluster-medium 不透明 y = Y+6 .. Y+90（84px）→ 中心 Y+48
- *   cluster-wide   不透明 y = Y+35 .. Y+80（45px）→ 中心 Y+57.5
- *
- * 帯 y[524,626] に収める制約から、取りうる中心の範囲は
- *   medium 中心 ∈ [566, 584]   (Y ∈ [518, 536])
- *   wide   中心 ∈ [546.5, 603.5] (Y ∈ [489, 546])
- * となり、**中心のずれは原理的に 37.5px が上限**。セル同士に課している
- * ROW_MIN_OFFSET(40) はこの帯では達成できないので、この2つだけは
- * 上限いっぱいまで離すことで代える（`notRowAligned` は CANVAS_MODE の
- * クリスタルには掛からない。予約枠でしか置かれないため）。
- * シルエットも 84px の縦長と 45px の平たい塊で大きく違うので、
- * 中心が 33px 離れていれば横一線には見えない。
- *
- *   medium が上: medium Y in [518,520] → 中心 [566,568]
- *               wide   Y in [543,546] → 中心 [600.5,603.5]  ずれ >= 32.5
- *   wide が上:   wide   Y in [489,492] → 中心 [546.5,549.5]
- *               medium Y in [534,536] → 中心 [582,584]      ずれ >= 32.5
+/*
+ * 下の帯に入るクリスタルが1つになったので、670 のときにあった
+ * 「2つを横一列に並べない（中心をずらす）」ための CANVAS_BOTTOM_BANDS と
+ * resolveCanvasBottomBands は不要になった。枠の y を直接持たせている。
  */
-const CANVAS_BOTTOM_BANDS = {
-  "cluster-medium": { upper: [518, 520], lower: [534, 536] },
-  "cluster-wide": { upper: [489, 492], lower: [543, 546] },
-};
-
-/**
- * どちらを上に置くかはシードごとに入れ替える（2案で同じ絵にならないように）。
- *
- * `upper` / `lower` は「帯の中で上に来るのはどちらか」で選ぶ枠であって、
- * 段そのものではない（上記のとおり段には割れない）。medium が上のときは
- * medium が `upper`、wide が `lower` の枠を使う。
- */
-function resolveCanvasBottomBands(slots) {
-  const mediumOnTop = rand() < 0.5;
-  return slots.map((slot) => {
-    const bands = CANVAS_BOTTOM_BANDS[slot.name];
-    if (!bands) return slot;
-    const useUpper = slot.name === "cluster-medium" ? mediumOnTop : !mediumOnTop;
-    const [y0, y1] = useUpper ? bands.upper : bands.lower;
-    return { ...slot, y0, y1 };
-  });
-}
 
 const CRYSTAL_SLOTS = CANVAS_MODE
   ? CANVAS_CRYSTAL_SLOTS
@@ -355,11 +299,11 @@ function mulberry32(seed) {
  * 既定シードは、本番で採用した配置を再現する値。
  * 素で再実行すればコミット済みの `src/lib/background-world.ts` と一致する。
  *
- * CANVAS_MODE の 6002 は、覗き・横並び・クリスタル欠けの制約を入れたあとに
+ * CANVAS_MODE の 6500 は、覗き・横並び・クリスタル欠けの制約を入れたあとに
  * 30シードを比較して選んだもの。制約を変えると同じシードでも別の絵になるので、
  * 変更したら選び直すこと（選び方は docs/technical/BACKGROUND-WORLD.md）。
  */
-const DEFAULT_SEED = CANVAS_MODE ? 6002 : 20260815;
+const DEFAULT_SEED = CANVAS_MODE ? 6500 : 20260815;
 const rand = mulberry32(Number(process.env.SEED ?? DEFAULT_SEED));
 const between = (lo, hi) => lo + rand() * (hi - lo);
 const pick = (list) => list[Math.floor(rand() * list.length)];
@@ -718,7 +662,7 @@ async function fillGaps(targetCount) {
  */
 async function reserveCrystalSlots() {
   const reserved = [];
-  const slots = CANVAS_MODE ? resolveCanvasBottomBands(CRYSTAL_SLOTS) : CRYSTAL_SLOTS;
+  const slots = CRYSTAL_SLOTS;
   for (const slot of slots) {
     const size = await assetSize(CRYSTAL_BASE, slot.name);
     let done = null;

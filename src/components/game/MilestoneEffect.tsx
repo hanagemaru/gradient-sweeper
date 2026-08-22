@@ -53,9 +53,18 @@ export function MilestoneEffect({ score, renderMilestone }: MilestoneEffectProps
     return <>{renderMilestone(activeMilestone)}</>;
   }
 
+  // `fixed inset-0` は `.scene` の transform によってキャンバス基準に読み替えられる
+  // ので、演出は 390x550 の中に収まる。
   return (
     <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center milestone-flash">
-      <div className="text-4xl font-black text-yellow-400 milestone-scale-up drop-shadow-lg">
+      <div
+        className="text-4xl milestone-scale-up"
+        style={{
+          fontFamily: "var(--block-font)",
+          color: "var(--amber)",
+          textShadow: "3px 3px 0 rgba(4, 15, 32, 0.6)",
+        }}
+      >
         {activeMilestone}
       </div>
     </div>

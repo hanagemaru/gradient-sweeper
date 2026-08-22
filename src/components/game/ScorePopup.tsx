@@ -9,10 +9,23 @@ interface ScorePopupProps {
 }
 
 /**
+ * 盤面の上に浮かぶ数値・ラベルの共通スタイル。
+ * 色以外（位置・フォント・落ち影）はここに集約する。フォントは `.scene` の
+ * ドット絵フォントを使い、合成ボールドは掛けない（ドット絵が潰れるため）。
+ */
+const POSITION = (popup: ScorePopupItem) => ({
+  left: `${popup.x}%`,
+  top: `${popup.y}%`,
+  transform: "translateX(-50%)",
+  fontFamily: "var(--block-font)",
+  textShadow: "2px 2px 0 rgba(4, 15, 32, 0.6)",
+});
+
+/**
  * スコアポップアップコンポーネント
  * 盤面上にオーバーレイ表示されるフローティングテキスト
- * - 正の値: 緑系
- * - 負の値: 赤系
+ * - 正の値・コンボラベル: 氷河テーマの水色 / 琥珀
+ * - 負の値: 桃（pixel-ui の .danger と同じ色）
  * - CSS keyframes: float-up + fade-out（約1秒）
  * - 将来の画像アセット差し替えに対応した renderItem props
  */
@@ -31,11 +44,10 @@ export function ScorePopup({ popups, renderItem }: ScorePopupProps) {
           return (
             <div
               key={popup.id}
-              className="absolute score-float-up font-bold text-xl text-amber-300 drop-shadow-lg"
+              className="absolute score-float-up text-xl"
               style={{
-                left: `${popup.x}%`,
-                top: `${popup.y}%`,
-                transform: "translateX(-50%)",
+                ...POSITION(popup),
+                color: "var(--amber)",
               }}
             >
               {popup.label}
@@ -45,7 +57,6 @@ export function ScorePopup({ popups, renderItem }: ScorePopupProps) {
 
         // 数値表示（マイナススコア等）
         const isPositive = popup.value >= 0;
-        const colorClass = isPositive ? "text-emerald-400" : "text-red-400";
         const text = isPositive
           ? `+${popup.value.toLocaleString()}`
           : popup.value.toLocaleString();
@@ -53,11 +64,10 @@ export function ScorePopup({ popups, renderItem }: ScorePopupProps) {
         return (
           <div
             key={popup.id}
-            className={`absolute score-float-up font-bold text-lg ${colorClass} drop-shadow-lg`}
+            className="absolute score-float-up text-lg"
             style={{
-              left: `${popup.x}%`,
-              top: `${popup.y}%`,
-              transform: "translateX(-50%)",
+              ...POSITION(popup),
+              color: isPositive ? "var(--cyan)" : "#ff9aaa",
             }}
           >
             {text}

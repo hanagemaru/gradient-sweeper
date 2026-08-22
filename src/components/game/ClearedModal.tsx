@@ -2,9 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useI18n } from "@/i18n/useI18n";
-import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/Icon";
+import {
+  PixelButton,
+  PixelButtonGroup,
+  PixelPanel,
+  PixelScene,
+  PixelStats,
+} from "@/components/ui/PixelUI";
 
 /** アニメーションのフェーズ */
 type AnimPhase = "idle" | "clear" | "perfect" | "done";
@@ -134,52 +138,37 @@ export function ClearedModal({
     onNext();
   }, [cancelAnim, onNext]);
 
+  if (!isOpen) return null;
+
+  // 上からクリアボーナス・パーフェクトボーナス（残り）、最後に累計スコア。
+  // ボーナスが無いレベルでは累計スコアだけを出す。
+  const stats = [
+    ...(totalBonus > 0
+      ? [
+          { label: t("cleared.bonus"), value: `+${displayClearBonus.toLocaleString()}` },
+          ...(isPerfect
+            ? [
+                {
+                  label: t("cleared.perfectBonus"),
+                  value: `+${displayPerfectBonus.toLocaleString()}`,
+                },
+              ]
+            : []),
+        ]
+      : []),
+    { label: t("cleared.totalScore"), value: displayScore.toLocaleString(), emphasis: true },
+  ];
+
   return (
-    <Modal isOpen={isOpen} hideClose>
-      <div className="flex flex-col items-center gap-5">
-        <Icon name="star" size="xl" />
-        <h2 className="text-2xl font-bold">{t("cleared.title")}</h2>
-
-        {/* 上: クリアボーナス・パーフェクトボーナス（常時表示）、下: 累計スコア */}
-        {totalBonus > 0 && (
-          <div className="w-full space-y-2 text-center">
-            {/* クリアボーナス行（常に表示） */}
-            <div className="flex justify-between items-center text-gray-400">
-              <span className="text-sm font-bold">{t("cleared.bonus")}</span>
-              <span className="text-lg font-mono tabular-nums text-yellow-400">
-                +{displayClearBonus.toLocaleString()}
-              </span>
-            </div>
-            {/* パーフェクトボーナス行（パーフェクト時のみ） */}
-            {isPerfect && (
-              <div className="flex justify-between items-center text-amber-400">
-                <span className="text-sm font-bold">{t("cleared.perfectBonus")}</span>
-                <span className="text-lg font-mono tabular-nums text-amber-300">
-                  +{displayPerfectBonus.toLocaleString()}
-                </span>
-              </div>
-            )}
-            <div className="border-t border-gray-600 my-2" />
-            {/* 累計スコア */}
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-bold text-gray-400">{t("cleared.totalScore")}</span>
-              <span className="text-3xl font-bold font-mono tabular-nums text-yellow-400">
-                {displayScore.toLocaleString()}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {totalBonus === 0 && (
-          <div className="text-3xl font-bold font-mono tabular-nums text-yellow-400">
-            {displayScore.toLocaleString()}
-          </div>
-        )}
-
-        <Button onClick={handleNext} variant="primary" className="w-full">
-          {t("cleared.next")}
-        </Button>
-      </div>
-    </Modal>
+    <PixelScene width="menu" overlay label={t("cleared.title")}>
+      <PixelPanel title="LEVEL CLEAR" subtitle={t("cleared.title")}>
+        <PixelStats items={stats} />
+        <PixelButtonGroup>
+          <PixelButton onClick={handleNext} size="lg" block leading="▶">
+            {t("cleared.next")}
+          </PixelButton>
+        </PixelButtonGroup>
+      </PixelPanel>
+    </PixelScene>
   );
 }
