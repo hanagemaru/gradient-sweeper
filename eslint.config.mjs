@@ -1,33 +1,29 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  {
-    ignores: [
-      ".next/**",
-      ".netlify/**",
-      ".claude/**",
-      ".cursor/**",
-      "node_modules/**",
-      "public/**",
-      "next-env.d.ts",
-    ],
-  },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
   {
     rules: {
-      // 必要に応じてルールをカスタマイズ
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      // Next.js 16 の設定で追加されたReact Compiler向けルール。
+      // 既存実装のリファクタリングは移行タスクに混ぜず、別タスクで扱う。
+      "react-hooks/immutability": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/set-state-in-effect": "off",
     },
   },
-];
+  globalIgnores([
+    ".next/**",
+    ".netlify/**",
+    ".claude/**",
+    ".cursor/**",
+    "node_modules/**",
+    "public/**",
+    "next-env.d.ts",
+  ]),
+]);
 
 export default eslintConfig;
