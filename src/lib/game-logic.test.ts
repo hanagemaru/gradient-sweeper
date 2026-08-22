@@ -7,6 +7,7 @@ import {
   getFirstClickExclusions,
   isFirstClick,
   regenerateForFirstClick,
+  resetExplodedCell,
   revealCell,
   toggleFlag,
 } from "./game-logic";
@@ -24,6 +25,30 @@ function allCells(board: Board) {
 
 function countBombs(board: Board) {
   return allCells(board).filter((cell) => cell.hasBomb).length;
+}
+
+/** ランダム性を使わず、指定座標に赤爆弾を置いた盤面を作る。 */
+function boardWithBombs(positions: ReadonlyArray<readonly [number, number]>): Board {
+  const board = generateBoard(0);
+
+  for (const [row, col] of positions) {
+    board.cells[row][col].hasBomb = true;
+    board.cells[row][col].bombType = "red";
+  }
+
+  for (let row = 0; row < GRID_SIZE; row += 1) {
+    for (let col = 0; col < GRID_SIZE; col += 1) {
+      board.cells[row][col].adjacentRed = positions.filter(
+        ([bombRow, bombCol]) =>
+          Math.abs(bombRow - row) <= 1 &&
+          Math.abs(bombCol - col) <= 1 &&
+          (bombRow !== row || bombCol !== col),
+      ).length;
+    }
+  }
+
+  board.bombCount = positions.length;
+  return board;
 }
 
 describe("generateBoard", () => {
@@ -98,6 +123,104 @@ describe("revealCell", () => {
     revealCell(board, 4, 4);
 
     expect(revealCell(board, 4, 4).type).toBe("noop");
+  });
+
+  it("爆弾の壁を越えず、壁の手前の領域だけ連鎖して開く", () => {
+    const wall = Array.from(
+      { length: GRID_SIZE },
+      (_, row) => [row, 4] as const,
+    );
+    const board = boardWithBombs(wall);
+    const result = revealCell(board, 4, 0);
+
+    expect(result.type).toBe("reveal");
+    if (result.type !== "reveal") return;
+    expect(result.cells).toHaveLength(GRID_SIZE * 4);
+
+    for (let row = 0; row < GRID_SIZE; row += 1) {
+      expect(board.cells[row].slice(0, 4).every((cell) => cell.state === "revealed")).toBe(true);
+      expect(board.cells[row][4].state).toBe("hidden");
+      expect(board.cells[row].slice(5).every((cell) => cell.state === "hidden")).toBe(true);
+    }
+  });
+
+  it("角の0マスから盤面端を越えずに安全マスだけ連鎖して開く", () => {
+    const board = boardWithBombs([[8, 8]]);
+    const result = revealCell(board, 0, 0);
+
+    expect(result.type).toBe("reveal");
+    if (result.type !== "reveal") return;
+    expect(result.cells).toHaveLength(GRID_SIZE * GRID_SIZE - 1);
+    expect(board.cells[8][8].state).toBe("hidden");
+    expect(allCells(board).filter((cell) => cell.state === "revealed")).toHaveLength(80);
+  });
+
+  it("隣接爆弾があるセルでは連鎖せず、その1マスだけ開く", () => {
+    const board = boardWithBombs([[4, 5]]);
+    const result = revealCell(board, 4, 4);
+
+    expect(result.type).toBe("reveal");
+    if (result.type !== "reveal") return;
+    expect(result.cells).toEqual([board.cells[4][4]]);
+    expect(allCells(board).filter((cell) => cell.state === "revealed")).toHaveLength(1);
+  });
+
+  it("旗が立っているセルは連鎖に巻き込まれない", () => {
+    const board = generateBoard(0);
+    toggleFlag(board, 4, 4);
+    const result = revealCell(board, 0, 0);
+
+    expect(result.type).toBe("reveal");
+    if (result.type !== "reveal") return;
+    expect(result.cells).toHaveLength(GRID_SIZE * GRID_SIZE - 1);
+    expect(board.cells[4][4].state).toBe("flagged");
+  });
+
+  it("爆弾を踏むとそのセルだけ exploded になり、連鎖しない", () => {
+    const board = boardWithBombs([[4, 4]]);
+    const result = revealCell(board, 4, 4);
+
+    expect(result.type).toBe("bomb");
+    if (result.type !== "bomb") return;
+    expect(result.cell).toBe(board.cells[4][4]);
+    expect(board.cells[4][4].state).toBe("exploded");
+    expect(allCells(board).filter((cell) => cell.state !== "hidden")).toHaveLength(1);
+  });
+});
+
+describe("resetExplodedCell", () => {
+  it("爆発したセルだけを flagged に戻す", () => {
+    const board = boardWithBombs([[4, 4]]);
+    revealCell(board, 4, 4);
+
+    resetExplodedCell(board);
+
+    expect(board.cells[4][4].state).toBe("flagged");
+    expect(countFlags(board)).toBe(1);
+    expect(allCells(board).filter((cell) => cell.state === "hidden")).toHaveLength(80);
+  });
+
+  it("爆発したセルがなければ盤面を変更しない", () => {
+    const board = boardWithBombs([[4, 4]]);
+
+    resetExplodedCell(board);
+
+    expect(board.cells[4][4].state).toBe("hidden");
+    expect(countFlags(board)).toBe(0);
+  });
+});
+
+describe("countFlags", () => {
+  it("flagged のセルだけを数える", () => {
+    const board = generateBoard(0);
+    toggleFlag(board, 0, 0);
+    toggleFlag(board, 4, 4);
+    board.cells[8][8].state = "revealed";
+
+    expect(countFlags(board)).toBe(2);
+
+    toggleFlag(board, 0, 0);
+    expect(countFlags(board)).toBe(1);
   });
 });
 
