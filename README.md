@@ -17,7 +17,7 @@ Gradient Sweeperは、マインスイーパーの概念に「色」の要素を�
 
 ## 技術スタック
 
-- **フレームワーク**: Next.js 15 (App Router)
+- **フレームワーク**: Next.js 16.3.2 (App Router)
 - **言語**: TypeScript
 - **スタイリング**: Tailwind CSS
 - **データベース**: Supabase (オプション)
@@ -34,7 +34,7 @@ Gradient Sweeperは、マインスイーパーの概念に「色」の要素を�
 
 ```bash
 # 依存パッケージのインストール
-npm install
+npm ci
 
 # 開発サーバーの起動
 npm run dev
@@ -45,6 +45,8 @@ npm run dev
 ### ビルド
 
 ```bash
+npm run lint
+npm run test
 npm run build
 npm start
 ```
@@ -84,6 +86,8 @@ gradient-sweeper/
 - [仕様書](./docs/SPEC.md)
 - [ユーザーガイド](./docs/USER-GUIDE.md)
 - [進捗管理](./docs/PROGRESS.md)
+- [現在の開発状況](./docs/PROJECT-STATUS.md)
+- [ロードマップ](./docs/ROADMAP.md)
 - [技術仕様](./docs/technical/)
 
 ## ライセンス

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-- Next.js 15 / React 19 / TypeScript puzzle game.
+- Next.js 16.3.2 / React 19.2.8 / TypeScript puzzle game.
 - The board is a fixed 9 x 9 grid with 36 px cells.
 - The current visual theme is `Gradient Glacier`: snow-covered cells reveal colored ice.
 - Production hosting is Netlify. Score data is stored in Supabase.
@@ -12,14 +12,22 @@
 - Use Node.js 20.
 - Install dependencies with `npm ci`.
 - Run `npm run lint` after code changes.
+- Run `npm run test` after code changes.
 - Run `npm run build` before opening or updating a pull request.
-- Do not claim completion when either command fails.
+- Do not claim completion when any verification command fails.
 
 ## Source-control workflow
 
-- Treat GitHub `main` as the stable source of truth.
-- Work on one task per branch. Use `codex/` or `claude/` branch prefixes for new cloud tasks.
+- Treat GitHub `main` as the stable source of truth. Local `main` does not need to be kept
+  continuously synchronized.
+- Before every task, fetch GitHub and create a fresh branch from the latest `origin/main`.
+  Do not base new work on a stale local `main` or on another agent's local checkout.
+- Work on one task per branch. Codex uses the `codex/` prefix and Claude Code uses the
+  `claude/` prefix for new branches.
 - Do not let two agents edit the same branch concurrently.
+- Before starting, check open pull requests and active task specifications for overlapping
+  files. Codex and Claude Code coordinate through GitHub branches, pull-request descriptions,
+  and `docs/tasks/`, not through unpushed local state.
 - Push checkpoints early and keep the pull-request description updated so another agent can continue.
 - Do not push directly to `main`; use a pull request and inspect its Netlify preview first.
 - Merge as soon as a pull request is green. Long-lived branches are the main source of conflicts.
@@ -49,6 +57,9 @@ touching the same file, so tasks are split by file, not by feature.
 - Preserve PNG dimensions, transparency, hard pixel edges, layer order, and `image-rendering: pixelated`.
 - The snow cast shadow is CSS, not baked into the snow PNG. It extends 3 px into the cell below.
 - Do not restore or reference `tiles-v1` through `tiles-v4` without an explicit design decision.
+- Bomb sprites live in `public/assets/frostbound/bombs-v1/`. They are 36 x 36 px PNGs with
+  24 x 24 px opaque bounds and 6 px padding on every side. Preserve binary alpha and hard
+  pixel edges; regenerate and validate them with `node scripts/render-bomb-assets.mjs`.
 
 ### Two properties that are load-bearing
 
