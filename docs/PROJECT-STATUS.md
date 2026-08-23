@@ -1,12 +1,17 @@
 # Project status
 
-Last updated: 2026-08-22
+Last updated: 2026-08-23
 
 > このファイルは**並行作業が無いときにだけ**更新する（AGENTS.md「Working in parallel」）。
 > 作業中に共有したいことは PR 説明かタスク仕様に書くこと。
 
 ## Current baseline
 
+- **Next.js 16.3.2 / React 19.2.8** へ移行済み（PR #17）。ESLint は Next.js の
+  Reactプラグインとの互換性がある 9.39.5 を使用する。`npm audit --omit=dev` は
+  本番依存の脆弱性0件。
+- `src/lib/game-logic.test.ts` は **40件**。連鎖開放（BFS）の壁・端／角・旗・爆弾、
+  `resetExplodedCell`、`countFlags` を含む（PR #18）。CI は lint → test → build を実行する。
 - 画面は**全ページが `PixelScene` の固定キャンバス**に載っている（`/`・`/ta`・`/game`・
   `/ranking`・`/result`、およびポーズ／ゲームオーバー／レベルクリアのオーバーレイ）。
   ホームとゲーム画面で意匠・フォント・配色変数が共通になった。
@@ -41,13 +46,6 @@ Last updated: 2026-08-22
 
 ## Known limitations
 
-- **Next.js 15 系の脆弱性が未解消。** `npm audit --omit=dev` が high 3件を報告する
-  （`postcss` のパストラバーサル、`sharp` が引き継ぐ libvips の CVE）。個別には上げられず、
-  Next.js 16 へのメジャー更新が必要。→ `docs/tasks/E-nextjs16.md`
-- **連鎖開放（BFS）のテストが薄い。** `src/lib/game-logic.test.ts` に 32件あるが、
-  その大半は初手保証（レーンF）のもの。`revealCell` は3件（全開・1マス・noop）だけで、
-  壁で区切られた領域・盤面の端・旗が絡む連鎖・爆弾を踏んだときは未カバー。
-  `resetExplodedCell` はテスト0件。→ `docs/tasks/D-tests.md` の優先度1
 - **盤面の爆弾表示が絵文字（🔴 / 🔵）のまま**（`src/components/game/Cell.tsx`）。
   世界観から浮いているが、差し替えには新規アセットが要る。
 - `src/components/Icon.tsx` の絵文字プレースホルダが残っている。参照元は `Cell.tsx` と、
@@ -59,7 +57,11 @@ Last updated: 2026-08-22
 
 ### 解消済み（以前ここに書かれていたもの）
 
-- ~~自動テストが存在しない~~ → 32件が `src/lib/game-logic.test.ts` にある。CI でも走る。
+- ~~Next.js 15 系の本番依存に high 3件~~ → Next.js 16.3.2へ移行し、
+  `npm audit --omit=dev` は0件（PR #17）。
+- ~~連鎖開放（BFS）の主要ケースが未検証~~ → 壁・端／角・旗・爆弾と、
+  `resetExplodedCell` / `countFlags` を追加し全40件（PR #18）。
+- ~~自動テストが存在しない~~ → 40件が `src/lib/game-logic.test.ts` にある。CI でも走る。
 - ~~Endless のスコアがクライアント申告のまま~~ → `src/lib/score-validation.ts` の
   `validateScoreSubmission` がサーバー側で検証する（レーンC / PR #6）。
 - ~~Supabase の RLS が未設定~~ → 2026-08-18 に本番プロジェクトで有効化済み
@@ -70,10 +72,11 @@ Last updated: 2026-08-22
 
 着手順と依存関係は `docs/ROADMAP.md`、レーンの分け方は `docs/tasks/README.md` を参照。
 
-1. **Next.js 16 移行**（`docs/tasks/E-nextjs16.md`）。セキュリティ項目なので優先度が高い。
-   `package-lock.json` が巨大なコンフリクトになるため**単独セッションで実施すること。**
-2. **連鎖開放のテスト**（`docs/tasks/D-tests.md` の優先度1）。
-3. 爆弾表示のアセット差し替え。
+1. **爆弾表示のアセット差し替え。** 現在の絵文字を、氷の世界観に合う赤／青の
+   ピクセルアセットへ置き換える。方向性を決めてから独立タスク化する。
+2. テスト整備の続き（`docs/tasks/D-tests.md` の優先度2・3）。
+   色パレットの不変条件と `useGame` のスコア／ライフ計算を追加する。
+3. 収益化（広告）の方式調査と実装。
 
 ## Development and deployment
 
