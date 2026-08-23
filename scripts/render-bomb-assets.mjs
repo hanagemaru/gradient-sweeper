@@ -5,7 +5,7 @@ import sharp from "sharp";
 const ROOT = process.cwd();
 const ASSET_ROOT = path.join(ROOT, "public/assets/frostbound/bombs-v1");
 const CANVAS_SIZE = 36;
-const EXPECTED_BOUNDS = { left: 5, top: 5, width: 26, height: 26 };
+const EXPECTED_BOUNDS = { left: 6, top: 6, width: 24, height: 24 };
 const COLORS = ["red", "blue"];
 
 for (const color of COLORS) {
@@ -71,5 +71,5 @@ for (const color of COLORS) {
     throw new Error(`${color}: expected bounds ${JSON.stringify(EXPECTED_BOUNDS)}, got ${JSON.stringify(bounds)}`);
   }
 
-  console.log(`bomb-${color}.png: 36x36, bounds=26x26+5+5, alpha=0/255`);
+  console.log(`bomb-${color}.png: 36x36, bounds=24x24+6+6, alpha=0/255`);
 }
