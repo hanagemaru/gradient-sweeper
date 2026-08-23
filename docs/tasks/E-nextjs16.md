@@ -1,14 +1,20 @@
 # E: Next.js 16 への移行
 
+> **状態（2026-08-23更新）: 完了（PR #17）。**
+>
+> Next.js 16.3.2 / React 19.2.8へ移行し、Node.js 20.19.5で lint・40件のテスト・
+> 本番ビルドを確認済み。NetlifyプレビューでEndless、Time Attack、ランキング、
+> 3つのstyle-lab画面を実操作し、`npm audit --omit=dev` は0件になった。
+
 ## 目的
 
 Next.js 15 系のビルド／画像ツールチェーンにある脆弱性を解消する。
 
 ## 背景
 
-`npm audit --omit=dev` が high 3件を報告している（`postcss` と `sharp`）。
-これらは Next.js 15 が依存しているもので、**個別に上げられない**。
-解消にはメジャーバージョンの更新が必要。
+移行前は `npm audit --omit=dev` が high 3件を報告していた（`postcss` と `sharp`）。
+これらは Next.js 15 が依存していたもので、個別には上げられなかったため、
+Next.js 16へのメジャーバージョン更新で解消した。
 
 ## 同時実行の制約
 
