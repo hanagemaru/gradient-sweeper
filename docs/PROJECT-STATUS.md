@@ -23,6 +23,10 @@ Last updated: 2026-08-23
   ホームは `src/lib/background-world.ts`（`scripts/generate-background-world.mjs` の生成物・
   手編集禁止）、ゲーム画面は `src/lib/game-scenery.ts`（手で置いた固定リスト）。
 - 承認済みの雪・氷アセットは `public/assets/frostbound/tiles-v5/`。
+- 爆弾表示は `public/assets/frostbound/bombs-v1/` の赤／青ピクセルPNGへ差し替え済み
+  （PR #20）。36 x 36 pxのキャンバス内に24 x 24 pxで描画し、四辺に6pxの余白を持つ。
+  赤青は同じ形状・ピクセル配置で、アルファ値は0/255のみ。SVG原本と再生成・検証用の
+  `scripts/render-bomb-assets.mjs` を同梱する。
 - `/style-lab` は視覚的なリファレンスとして残っている。子ルート `/style-lab/color-map` は
   全45通りの隣接状態と実タイルの対応を描画する。本番の `getIceAsset()`
   （`src/lib/tile-assets.ts`）を直接呼ぶので、ゲームとずれない。
@@ -46,10 +50,9 @@ Last updated: 2026-08-23
 
 ## Known limitations
 
-- **盤面の爆弾表示が絵文字（🔴 / 🔵）のまま**（`src/components/game/Cell.tsx`）。
-  世界観から浮いているが、差し替えには新規アセットが要る。
-- `src/components/Icon.tsx` の絵文字プレースホルダが残っている。参照元は `Cell.tsx` と、
-  現在どこからも描画されていない `Timer.tsx` / `Lives.tsx` / `BombCounter.tsx`。
+- `src/components/Icon.tsx` には爆弾以外の汎用絵文字が残っている。現在の本番画面では
+  それらを使う旧 `Timer.tsx` / `Lives.tsx` / `BombCounter.tsx` は描画されていないため、
+  見た目への影響はない。
 - **iPhone SE の Safari では左右に 12px ずつ黒帯が残る。**「全機種で黒帯0」という
   設計意図の未達。実効 svh が 495（推定していた 553 より 58px 少ない）ため。
   詳細と閉じる場合の見積もりは `docs/tasks/I-canvas-fit.md`。
@@ -67,16 +70,24 @@ Last updated: 2026-08-23
 - ~~Supabase の RLS が未設定~~ → 2026-08-18 に本番プロジェクトで有効化済み
   （`docs/DEPLOYMENT.md`）。
 - ~~glacier のビジュアルが `/game` だけ~~ → 全ページに適用済み。
+- ~~盤面の爆弾表示が絵文字（🔴 / 🔵）~~ → 赤／青の専用ピクセルPNGへ差し替え済み
+  （PR #20）。
 
 ## Known follow-up work
 
 着手順と依存関係は `docs/ROADMAP.md`、レーンの分け方は `docs/tasks/README.md` を参照。
 
-1. **爆弾表示のアセット差し替え。** 現在の絵文字を、氷の世界観に合う赤／青の
-   ピクセルアセットへ置き換える。方向性を決めてから独立タスク化する。
-2. テスト整備の続き（`docs/tasks/D-tests.md` の優先度2・3）。
+1. テスト整備の続き（`docs/tasks/D-tests.md` の優先度2・3）。
    色パレットの不変条件と `useGame` のスコア／ライフ計算を追加する。
-3. 収益化（広告）の方式調査と実装。
+2. 収益化（広告）は実装前にWeb PWAで使える方式と規約適合を独立タスクで調査する。
+
+## GitHub-first workflow
+
+- GitHubの `main` を正本とし、PCのローカル `main` を継続的に同期する必要はない。
+- Codex／Claude Codeとも、作業開始時にGitHubを取得し、最新の `origin/main` から
+  タスク専用ブランチを作る。Codexは `codex/`、Claude Codeは `claude/` を使う。
+- 同じブランチを共有せず、オープン中のPR・`docs/tasks/`・担当ファイルを確認してから着手する。
+  引き継ぎはローカル状態ではなく、GitHubのブランチとPR説明を通じて行う。
 
 ## Development and deployment
 

@@ -12,6 +12,7 @@
 
 - [ ] `npm ci`
 - [ ] `npm run lint` が通る
+- [ ] `npm run test` が通る
 - [ ] `npm run build` が通る
 - [ ] Netlify のデプロイプレビューで表示を確認した
 
